@@ -190,7 +190,19 @@ async function loadAlerts() {
   });
 }
 
-function buildSetupCommands(serverOrigin, token) {
+function buildSetupCommandsWindows(serverOrigin, token) {
+  return `python -m venv .venv
+.\\.venv\\Scripts\\Activate.ps1
+pip install -r requirements.txt
+
+$env:SERVER_URL="${serverOrigin}"
+$env:SERVER_API_KEY="${token}"
+$env:AGENT_INTERVAL_SECONDS="60"
+
+python -m client.agent`;
+}
+
+function buildSetupCommandsLinux(serverOrigin, token) {
   return `python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
@@ -220,7 +232,11 @@ async function generateOnboardingToken() {
   document.getElementById("generatedToken").value = tokenPayload.token;
   document.getElementById("serverOriginValue").textContent = tokenPayload.server_origin;
   document.getElementById("serverHostValue").textContent = tokenPayload.server_host;
-  document.getElementById("setupCommands").textContent = buildSetupCommands(
+  document.getElementById("setupCommandsWindows").textContent = buildSetupCommandsWindows(
+    tokenPayload.server_origin,
+    tokenPayload.token
+  );
+  document.getElementById("setupCommandsLinux").textContent = buildSetupCommandsLinux(
     tokenPayload.server_origin,
     tokenPayload.token
   );

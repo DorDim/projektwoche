@@ -171,15 +171,23 @@ Bitte Client auswählen</pre
             <ol class="list-decimal space-y-2 pl-5">
               <li>Auf dem Zielrechner Python 3 installieren.</li>
               <li>Projekt/Client-Dateien auf den Zielrechner kopieren oder Repository klonen.</li>
-              <li>Virtuelle Umgebung anlegen und Abhängigkeiten installieren.</li>
-              <li>Server-Adresse und Token als Umgebungsvariablen setzen.</li>
+              <li><span class="font-semibold">Windows (empfohlen):</span> PowerShell als Benutzer öffnen.</li>
+              <li>Virtuelle Umgebung anlegen, Abhängigkeiten installieren und Variablen setzen (siehe Befehle unten).</li>
               <li>Client-Agent starten und im Dashboard prüfen, ob der neue Client erscheint.</li>
             </ol>
           </div>
 
           <div class="rounded-lg border border-slate-200 p-3">
-            <h3 class="mb-2 font-semibold">Beispielbefehle (Linux/macOS)</h3>
-            <pre id="setupCommands" class="overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100"></pre>
+            <h3 class="mb-2 font-semibold">Beispielbefehle Windows (PowerShell)</h3>
+            <pre
+              id="setupCommandsWindows"
+              class="overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100"
+            ></pre>
+          </div>
+
+          <div class="rounded-lg border border-slate-200 p-3">
+            <h3 class="mb-2 font-semibold">Alternative: Linux/macOS</h3>
+            <pre id="setupCommandsLinux" class="overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100"></pre>
           </div>
 
           <div id="onboardingStatus" class="hidden rounded-md border px-3 py-2 text-xs"></div>
