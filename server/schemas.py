@@ -130,3 +130,39 @@ class OnboardingTokenOut(BaseModel):
     created_at: datetime
     server_origin: str
     server_host: str
+
+
+class AuthContextOut(BaseModel):
+    role: str
+    token_name: str | None = None
+
+
+class ClientAnalyticsOut(BaseModel):
+    client_uid: str
+    sample_count: int
+    avg_cpu_temperature_c: float | None
+    avg_disk_free_percent_min: float | None
+    avg_uptime_seconds: float | None
+    trend_cpu_temperature_c_per_hour: float | None
+    trend_disk_free_percent_min_per_hour: float | None
+    trend_uptime_seconds_per_hour: float | None
+
+
+class AnomalyOut(BaseModel):
+    collected_at: datetime
+    type: str
+    severity: str
+    message: str
+    value: float | None = None
+    threshold: float | None = None
+
+
+class EventLogOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    created_at: datetime
+    level: str
+    event_type: str
+    message: str
+    client_uid: str | None
+    details: dict | None

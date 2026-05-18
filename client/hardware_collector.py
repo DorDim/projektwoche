@@ -1,3 +1,5 @@
+import ipaddress
+import json
 import platform
 import socket
 import subprocess
@@ -64,11 +66,30 @@ def _normalize_vendor(value: str | None) -> str | None:
         "to be filled by oem",
         "default string",
         "system manufacturer",
+        "system product name",
+        "system version",
+        "not applicable",
+        "n/a",
+        "unknown",
         "none",
     }
     if normalized.lower() in placeholder_values:
         return None
     return normalized
+
+
+def _parse_json_output(raw_output: str | None) -> list[dict]:
+    if not raw_output:
+        return []
+    try:
+        decoded = json.loads(raw_output)
+    except json.JSONDecodeError:
+        return []
+    if isinstance(decoded, dict):
+        return [decoded]
+    if isinstance(decoded, list):
+        return [item for item in decoded if isinstance(item, dict)]
+    return []
 
 
 def get_hostname() -> str:
@@ -145,35 +166,77 @@ def get_motherboard_vendor() -> str | None:
     if platform.system().lower() == "windows":
         output = _run_command(["wmic", "baseboard", "get", "Manufacturer"])
         vendor = _normalize_vendor(_first_data_line(output, ignored_keywords=("manufacturer",)))
+        product = _normalize_vendor(_first_data_line(_run_command(["wmic", "baseboard", "get", "Product"]), ("product",)))
+        if vendor and product and product.lower() not in vendor.lower():
+            return f"{vendor} ({product})"
         if vendor:
             return vendor
+        if product:
+            return product
 
         output = _run_powershell(
-            "(Get-CimInstance Win32_BaseBoard | Select-Object -ExpandProperty Manufacturer | Select-Object -First 1)"
+            "Get-CimInstance Win32_BaseBoard | Select-Object Manufacturer,Product | ConvertTo-Json -Compress"
         )
-        vendor = _normalize_vendor(_first_data_line(output))
-        if vendor:
-            return vendor
+        records = _parse_json_output(output)
+        if records:
+            cim_vendor = _normalize_vendor(str(records[0].get("Manufacturer") or ""))
+            cim_product = _normalize_vendor(str(records[0].get("Product") or ""))
+            if cim_vendor and cim_product and cim_product.lower() not in cim_vendor.lower():
+                return f"{cim_vendor} ({cim_product})"
+            if cim_vendor:
+                return cim_vendor
+            if cim_product:
+                return cim_product
 
         output = _run_powershell(
-            "(Get-CimInstance Win32_ComputerSystem | Select-Object -ExpandProperty Manufacturer | Select-Object -First 1)"
+            "Get-CimInstance Win32_ComputerSystem | Select-Object Manufacturer,Model | ConvertTo-Json -Compress"
         )
-        return _normalize_vendor(_first_data_line(output))
-    return _read_text_file(Path("/sys/devices/virtual/dmi/id/board_vendor"))
+        records = _parse_json_output(output)
+        if records:
+            vendor = _normalize_vendor(str(records[0].get("Manufacturer") or ""))
+            model = _normalize_vendor(str(records[0].get("Model") or ""))
+            if vendor and model and model.lower() not in vendor.lower():
+                return f"{vendor} ({model})"
+            if vendor:
+                return vendor
+            if model:
+                return model
+        return None
+    return _normalize_vendor(_read_text_file(Path("/sys/devices/virtual/dmi/id/board_vendor")))
 
 
 def get_bios_vendor() -> str | None:
     if platform.system().lower() == "windows":
         output = _run_command(["wmic", "bios", "get", "Manufacturer"])
         vendor = _normalize_vendor(_first_data_line(output, ignored_keywords=("manufacturer",)))
+        version = _normalize_vendor(
+            _first_data_line(_run_command(["wmic", "bios", "get", "SMBIOSBIOSVersion"]), ("smbiosbiosversion",))
+        )
+        if vendor and version and version.lower() not in vendor.lower():
+            return f"{vendor} ({version})"
         if vendor:
             return vendor
+        if version:
+            return version
 
         output = _run_powershell(
-            "(Get-CimInstance Win32_BIOS | Select-Object -ExpandProperty Manufacturer | Select-Object -First 1)"
+            "Get-CimInstance Win32_BIOS | Select-Object Manufacturer,SMBIOSBIOSVersion,Name | ConvertTo-Json -Compress"
         )
-        return _normalize_vendor(_first_data_line(output))
-    return _read_text_file(Path("/sys/devices/virtual/dmi/id/bios_vendor"))
+        records = _parse_json_output(output)
+        if records:
+            cim_vendor = _normalize_vendor(str(records[0].get("Manufacturer") or ""))
+            cim_version = _normalize_vendor(str(records[0].get("SMBIOSBIOSVersion") or ""))
+            cim_name = _normalize_vendor(str(records[0].get("Name") or ""))
+            if cim_vendor and cim_version and cim_version.lower() not in cim_vendor.lower():
+                return f"{cim_vendor} ({cim_version})"
+            if cim_vendor:
+                return cim_vendor
+            if cim_name:
+                return cim_name
+            if cim_version:
+                return cim_version
+        return None
+    return _normalize_vendor(_read_text_file(Path("/sys/devices/virtual/dmi/id/bios_vendor")))
 
 
 def get_disks() -> list[dict]:
@@ -203,20 +266,66 @@ def get_windows_version() -> str:
 
 
 def get_network_adapters() -> list[dict]:
+    if platform.system().lower() == "windows":
+        output = _run_powershell(
+            "Get-CimInstance Win32_NetworkAdapterConfiguration | "
+            "Where-Object {$_.IPEnabled -eq $true} | "
+            "Select-Object Description,MACAddress,IPAddress | ConvertTo-Json -Compress"
+        )
+        records = _parse_json_output(output)
+        if records:
+            adapters: list[dict] = []
+            for record in records:
+                raw_ips = record.get("IPAddress") or []
+                if isinstance(raw_ips, str):
+                    raw_ips = [raw_ips]
+                ipv4: list[str] = []
+                ipv6: list[str] = []
+                for ip in raw_ips:
+                    try:
+                        parsed = ipaddress.ip_address(ip.split("%")[0])
+                    except ValueError:
+                        continue
+                    if parsed.version == 4:
+                        ipv4.append(str(parsed))
+                    else:
+                        ipv6.append(str(parsed))
+                adapters.append(
+                    {
+                        "name": record.get("Description") or "Adapter",
+                        "ipv4": sorted(set(ipv4)),
+                        "ipv6": sorted(set(ipv6)),
+                        "mac": record.get("MACAddress"),
+                    }
+                )
+            if adapters:
+                return adapters
+
     adapters = []
     all_interfaces = psutil.net_if_addrs()
+    mac_families = {getattr(socket, "AF_PACKET", None), getattr(psutil, "AF_LINK", None), -1}
     for name, addresses in all_interfaces.items():
         adapter = {"name": name, "ipv4": [], "ipv6": [], "mac": None}
         for address in addresses:
-            family = str(address.family)
-            if "AddressFamily.AF_INET6" in family:
-                adapter["ipv6"].append(address.address.split("%")[0])
-            elif "AddressFamily.AF_INET" in family:
+            try:
+                family = int(address.family)
+            except (TypeError, ValueError):
+                family = None
+
+            if family == int(socket.AF_INET):
                 adapter["ipv4"].append(address.address)
-            elif "AF_PACKET" in family or "psutil.AF_LINK" in family:
-                if address.address and address.address != "00:00:00:00:00:00":
-                    adapter["mac"] = address.address
-        adapters.append(adapter)
+            elif family == int(socket.AF_INET6):
+                adapter["ipv6"].append(address.address.split("%")[0])
+            elif family in mac_families:
+                mac = (address.address or "").strip()
+                if mac and mac not in {"00:00:00:00:00:00", "00-00-00-00-00-00"}:
+                    adapter["mac"] = mac
+
+        adapter["ipv4"] = sorted(set(adapter["ipv4"]))
+        adapter["ipv6"] = sorted(set(adapter["ipv6"]))
+        if adapter["ipv4"] or adapter["ipv6"] or adapter["mac"]:
+            adapters.append(adapter)
+
     return adapters
 
 
