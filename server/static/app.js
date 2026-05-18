@@ -3,44 +3,74 @@ let historyChart = null;
 let uptimeChart = null;
 let diskChart = null;
 let onboardingTokenValue = "";
+let currentApiKey = "";
 
 const REPOSITORY_URL = "https://github.com/DorDim/projektwoche.git";
 const API_KEY_STORAGE_KEY = "hardware-monitor-api-key";
 
-function getApiKeyInput() {
-  return document.getElementById("apiKey");
-}
-
-function getApiKey() {
-  return getApiKeyInput().value.trim();
-}
-
 function headers() {
-  return { "X-API-Key": getApiKey() };
+  return { "X-API-Key": currentApiKey };
+}
+
+function setApiKeyState() {
+  const state = document.getElementById("apiKeyState");
+  const hasKey = Boolean(currentApiKey);
+  state.textContent = hasKey ? "API-Key gesetzt" : "Kein API-Key gesetzt";
+  state.className = hasKey ? "mt-1 text-sm font-medium text-emerald-700" : "mt-1 text-sm font-medium text-amber-700";
+  document.getElementById("openApiKeyModalBtn").textContent = hasKey ? "API-Key ändern" : "API-Key setzen";
+}
+
+function showApiKeyHint(message = "") {
+  const hint = document.getElementById("apiKeyModalHint");
+  if (!message) {
+    hint.textContent = "";
+    hint.classList.add("hidden");
+    return;
+  }
+  hint.textContent = message;
+  hint.classList.remove("hidden");
+}
+
+function openApiKeyModal(message = "") {
+  const modal = document.getElementById("apiKeyModal");
+  const input = document.getElementById("apiKeyModalInput");
+  input.value = currentApiKey;
+  showApiKeyHint(message);
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+  setTimeout(() => input.focus(), 0);
+}
+
+function closeApiKeyModal() {
+  const modal = document.getElementById("apiKeyModal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+  showApiKeyHint("");
 }
 
 function loadSavedApiKey() {
   try {
     const saved = localStorage.getItem(API_KEY_STORAGE_KEY);
     if (saved) {
-      getApiKeyInput().value = saved;
+      currentApiKey = saved.trim();
     }
   } catch (_error) {
     // Local storage might be disabled in hardened browsers.
   }
+  setApiKeyState();
 }
 
 function persistApiKey() {
   try {
-    const key = getApiKey();
-    if (key) {
-      localStorage.setItem(API_KEY_STORAGE_KEY, key);
+    if (currentApiKey) {
+      localStorage.setItem(API_KEY_STORAGE_KEY, currentApiKey);
     } else {
       localStorage.removeItem(API_KEY_STORAGE_KEY);
     }
   } catch (_error) {
     // Ignore storage errors; the app still works without persistence.
   }
+  setApiKeyState();
 }
 
 function fmt(value, digits = 2) {
@@ -70,20 +100,34 @@ function formatDuration(seconds) {
 }
 
 async function apiGet(path) {
+  if (!currentApiKey) {
+    openApiKeyModal("Bitte zuerst einen API-Key eingeben.");
+    throw new Error("Kein API-Key gesetzt.");
+  }
   const response = await fetch(path, { headers: headers() });
   if (!response.ok) {
+    if (response.status === 401) {
+      openApiKeyModal("API-Key ungültig oder abgelaufen. Bitte neu eingeben.");
+    }
     throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   }
   return response.json();
 }
 
 async function apiPost(path, payload) {
+  if (!currentApiKey) {
+    openApiKeyModal("Bitte zuerst einen API-Key eingeben.");
+    throw new Error("Kein API-Key gesetzt.");
+  }
   const response = await fetch(path, {
     method: "POST",
     headers: { ...headers(), "Content-Type": "application/json" },
     body: JSON.stringify(payload),
   });
   if (!response.ok) {
+    if (response.status === 401) {
+      openApiKeyModal("API-Key ungültig oder abgelaufen. Bitte neu eingeben.");
+    }
     throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   }
   return response.json();
@@ -415,21 +459,19 @@ async function loadAlerts() {
 }
 
 function buildSetupCommandsWindows(serverOrigin, token) {
-  return `git clone ${REPOSITORY_URL}
-cd projektwoche
-
-python -m venv .venv
-.\\.venv\\Scripts\\Activate.ps1
-pip install -r requirements.txt
-
-powershell -ExecutionPolicy Bypass -File .\\client\\install_windows_background.ps1 `
-  -ServerUrl "${serverOrigin}" `
-  -ApiKey "${token}" `
-  -IntervalSeconds 60 `
-  -StartNow
-
-# Optional prüfen:
-Get-ScheduledTask -TaskName "HardwareMonitorClientAgent"`;
+  return [
+    `git clone ${REPOSITORY_URL}`,
+    "cd projektwoche",
+    "",
+    "python -m venv .venv",
+    ".\\.venv\\Scripts\\Activate.ps1",
+    "pip install -r requirements.txt",
+    "",
+    `powershell -ExecutionPolicy Bypass -File .\\client\\install_windows_background.ps1 -ServerUrl "${serverOrigin}" -ApiKey "${token}" -IntervalSeconds 60 -StartNow`,
+    "",
+    "# Optional prüfen:",
+    'Get-ScheduledTask -TaskName "HardwareMonitorClientAgent"',
+  ].join("\n");
 }
 
 function buildSetupCommandsLinux(serverOrigin, token) {
@@ -505,7 +547,11 @@ async function copyTextToClipboard(text) {
 
 async function refreshAll() {
   showError("");
-  persistApiKey();
+  if (!currentApiKey) {
+    resetDetailView("Bitte API-Key setzen, um Client-Daten zu laden.");
+    openApiKeyModal("Bitte zuerst einen API-Key eingeben.");
+    return;
+  }
   const clients = await apiGet("/api/clients");
   renderClients(clients);
   await loadAlerts();
@@ -519,8 +565,19 @@ async function refreshAll() {
   }
 }
 
-getApiKeyInput().addEventListener("change", persistApiKey);
-getApiKeyInput().addEventListener("blur", persistApiKey);
+async function saveApiKeyFromModal() {
+  const input = document.getElementById("apiKeyModalInput");
+  const newKey = input.value.trim();
+  if (!newKey) {
+    showApiKeyHint("Bitte einen API-Key eingeben.");
+    return;
+  }
+  currentApiKey = newKey;
+  persistApiKey();
+  closeApiKeyModal();
+  showError("");
+  await refreshAll();
+}
 
 document.getElementById("refreshBtn").addEventListener("click", async () => {
   try {
@@ -531,6 +588,10 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
 });
 
 document.getElementById("openOnboardingBtn").addEventListener("click", async () => {
+  if (!currentApiKey) {
+    openApiKeyModal("Für das Onboarding wird ein API-Key benötigt.");
+    return;
+  }
   openOnboardingModal();
   try {
     await generateOnboardingToken();
@@ -566,5 +627,36 @@ document.getElementById("onboardingModal").addEventListener("click", (event) => 
   }
 });
 
+document.getElementById("openApiKeyModalBtn").addEventListener("click", () => openApiKeyModal(""));
+document.getElementById("closeApiKeyModalBtn").addEventListener("click", closeApiKeyModal);
+document.getElementById("cancelApiKeyBtn").addEventListener("click", closeApiKeyModal);
+document.getElementById("saveApiKeyBtn").addEventListener("click", async () => {
+  try {
+    await saveApiKeyFromModal();
+  } catch (error) {
+    showError(error.message);
+  }
+});
+document.getElementById("apiKeyModalInput").addEventListener("keydown", async (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    try {
+      await saveApiKeyFromModal();
+    } catch (error) {
+      showError(error.message);
+    }
+  }
+});
+document.getElementById("apiKeyModal").addEventListener("click", (event) => {
+  if (event.target.id === "apiKeyModal") {
+    closeApiKeyModal();
+  }
+});
+
 loadSavedApiKey();
-refreshAll().catch((error) => showError(error.message));
+if (currentApiKey) {
+  refreshAll().catch((error) => showError(error.message));
+} else {
+  resetDetailView("Bitte API-Key setzen, um Daten zu laden.");
+  openApiKeyModal("Bitte API-Key eingeben.");
+}
