@@ -89,6 +89,29 @@ DEFAULT_USER_PERMISSIONS = {
 }
 
 
+def log_event_safe(
+    *,
+    level: str,
+    event_type: str,
+    message: str,
+    client_uid: str | None = None,
+    details: dict | None = None,
+) -> None:
+    try:
+        with Session(engine) as db:
+            log_event(
+                db,
+                level=level,
+                event_type=event_type,
+                message=message,
+                client_uid=client_uid,
+                details=details,
+            )
+            db.commit()
+    except Exception as exc:  # noqa: BLE001
+        logger.error("Event-Logging fehlgeschlagen (%s): %s", event_type, exc)
+
+
 def normalize_permissions(permissions: dict | None, *, role: str) -> dict[str, bool]:
     if role == "admin":
         return dict(ALL_PERMISSIONS)
@@ -150,6 +173,32 @@ def log_event(
             details=details,
         )
     )
+
+
+@app.middleware("http")
+async def log_api_errors(request: Request, call_next):
+    if not request.url.path.startswith("/api"):
+        return await call_next(request)
+
+    try:
+        response = await call_next(request)
+    except Exception as exc:  # noqa: BLE001
+        log_event_safe(
+            level="error",
+            event_type="api_unhandled_exception",
+            message=f"Unhandled exception bei {request.method} {request.url.path}",
+            details={"error": str(exc)},
+        )
+        raise
+
+    if response.status_code >= 400:
+        log_event_safe(
+            level="error" if response.status_code >= 500 else "warning",
+            event_type="api_error_response",
+            message=f"{request.method} {request.url.path} -> HTTP {response.status_code}",
+            details={"status_code": response.status_code},
+        )
+    return response
 
 
 def create_agent_token(db: Session, token_name_prefix: str = "agent-token") -> tuple[str, str]:
@@ -791,6 +840,7 @@ def list_snapshots(
 def client_analytics(
     client_uid: str,
     limit: int = Query(default=200, ge=2, le=5000),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
     client = get_client_by_uid_or_404(db, client_uid)
@@ -800,7 +850,17 @@ def client_analytics(
         .order_by(HardwareSnapshot.collected_at.desc())
         .limit(limit)
     ).all()
-    return analytics_for_snapshots(client_uid, snapshots)
+    analytics = analytics_for_snapshots(client_uid, snapshots)
+    log_event(
+        db,
+        level="info",
+        event_type="analytics_requested",
+        message=f"Analytics für Client '{client_uid}' angefordert.",
+        client_uid=client_uid,
+        details={"requested_by": auth_context.get("username"), "sample_count": analytics.sample_count},
+    )
+    db.commit()
+    return analytics
 
 
 @api.get(
@@ -811,6 +871,7 @@ def client_analytics(
 def client_anomalies(
     client_uid: str,
     limit: int = Query(default=200, ge=2, le=5000),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
     client = get_client_by_uid_or_404(db, client_uid)
@@ -820,7 +881,17 @@ def client_anomalies(
         .order_by(HardwareSnapshot.collected_at.desc())
         .limit(limit)
     ).all()
-    return detect_anomalies(snapshots)
+    anomalies = detect_anomalies(snapshots)
+    log_event(
+        db,
+        level="info",
+        event_type="anomalies_requested",
+        message=f"Auffälligkeiten für Client '{client_uid}' angefordert.",
+        client_uid=client_uid,
+        details={"requested_by": auth_context.get("username"), "count": len(anomalies)},
+    )
+    db.commit()
+    return anomalies
 
 
 @api.get("/clients/{client_uid}/export", dependencies=[Depends(require_permission("view_dashboard"))])
@@ -828,6 +899,7 @@ def export_client_data(
     client_uid: str,
     export_format: str = Query(default="json", alias="format"),
     limit: int = Query(default=200, ge=1, le=5000),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
     normalized_format = export_format.lower()
@@ -843,6 +915,15 @@ def export_client_data(
     ).all()
 
     rows = build_snapshot_export_rows(client, snapshots)
+    log_event(
+        db,
+        level="info",
+        event_type="export_requested",
+        message=f"Export für Client '{client_uid}' im Format '{normalized_format}' angefordert.",
+        client_uid=client_uid,
+        details={"requested_by": auth_context.get("username"), "format": normalized_format, "rows": len(rows)},
+    )
+    db.commit()
 
     if normalized_format == "json":
         return JSONResponse(

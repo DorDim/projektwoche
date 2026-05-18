@@ -6,6 +6,13 @@ Zentrale Hardwareüberwachung mit:
 - **PostgreSQL**
 - **Traefik + Let's Encrypt** (HTTPS)
 
+Wichtige Funktionen:
+- Export pro Client als **CSV, JSON, PDF**
+- **Trends und Durchschnittswerte** je Client
+- **Auffälligkeitserkennung** (z. B. Temperatur, Speicher, Uptime-Reset)
+- **Ereignis- und Fehlerprotokollierung**
+- Frei konfigurierbare **Alarmregeln** mit visueller + akustischer Alarmausgabe
+
 ---
 
 ## Schnellstart (empfohlen: Docker Compose)
