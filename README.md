@@ -101,6 +101,41 @@ source .venv/bin/activate
 pip install -r requirements.txt
 ```
 
+## Server als Docker Compose (empfohlen)
+
+1. Konfiguration vorbereiten:
+
+```bash
+cp .env.example .env
+```
+
+2. Stack starten (Server + PostgreSQL):
+
+```bash
+docker compose up -d --build
+```
+
+3. Pruefen:
+
+```bash
+docker compose ps
+docker compose logs -f server
+```
+
+Dashboard: `http://localhost:8000`
+
+Stoppen:
+
+```bash
+docker compose down
+```
+
+Komplett zuruecksetzen (inkl. DB-Daten):
+
+```bash
+docker compose down -v
+```
+
 ## Server starten
 
 ```bash
@@ -146,6 +181,15 @@ Hinweise:
 - `postgres://...` und `postgresql://...` werden automatisch auf das SQLAlchemy-Format normalisiert.
 - Fuer produktive externe DBs sollte TLS/SSL aktiviert sein (`DB_SSLMODE=require`).
 - Tabellen werden beim Server-Start automatisch erstellt (Prototyp-Verhalten).
+
+Auch mit Docker Compose moeglich:
+
+```bash
+cp .env.example .env
+# DATABASE_URL in .env auf externe DB setzen
+# optional: DB_SSLMODE=require setzen
+docker compose up -d --build server
+```
 
 ## Beispiel-Endpunkte
 

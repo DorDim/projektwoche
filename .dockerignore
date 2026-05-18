@@ -1,6 +1,9 @@
-.venv/
-__pycache__/
+.git
+.venv
+__pycache__
 *.pyc
+*.pyo
+*.pyd
 hardware_monitor.db
 .client_id
 .env
