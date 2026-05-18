@@ -11,7 +11,7 @@ Er besteht aus:
 - **Python 3**
 - **FastAPI** (REST-API + Webserver)
 - **SQLAlchemy** (ORM)
-- **SQLite** als Standard (relationale SQL-Datenbank, optional PostgreSQL via `DATABASE_URL`)
+- **SQLite** als Standard (relationale SQL-Datenbank, optional externe PostgreSQL via `DATABASE_URL`)
 - **psutil** fuer Hardware-/Systemdaten
 - **Chart.js** fuer Diagramme im Browser
 
@@ -124,9 +124,28 @@ python -m client.agent
 
 - `SERVER_API_KEY`: API-Key fuer Server/Client-Kommunikation
 - `DATABASE_URL`: SQL-Verbindung (SQLite oder PostgreSQL)
+- `DB_SSLMODE`: optionaler SSL-Modus fuer PostgreSQL (`require`, `verify-ca`, `verify-full`, ...)
+- `DB_POOL_SIZE`: Groesse des DB-Verbindungspools (Standard `10`)
+- `DB_MAX_OVERFLOW`: zusaetzliche Burst-Verbindungen ausserhalb des Pools (Standard `20`)
 - `STALE_AFTER_SECONDS`: ab wann ein Client als offline gilt
 - `AGENT_INTERVAL_SECONDS`: Sendeintervall des Agenten
 - `CLIENT_ID_FILE`: Speicherort der lokalen Client-UID
+
+## Externe PostgreSQL-Datenbank (optional)
+
+Du kannst statt SQLite eine externe PostgreSQL-Instanz verwenden, z. B. in Cloud/Hosting:
+
+```bash
+export SERVER_API_KEY="change-me"
+export DATABASE_URL="postgres://monitor_user:strongpass@db.example.com:5432/hardware_monitor"
+export DB_SSLMODE="require"
+uvicorn server.main:app --host 0.0.0.0 --port 8000
+```
+
+Hinweise:
+- `postgres://...` und `postgresql://...` werden automatisch auf das SQLAlchemy-Format normalisiert.
+- Fuer produktive externe DBs sollte TLS/SSL aktiviert sein (`DB_SSLMODE=require`).
+- Tabellen werden beim Server-Start automatisch erstellt (Prototyp-Verhalten).
 
 ## Beispiel-Endpunkte
 
