@@ -31,9 +31,10 @@ function Resolve-PythonExecutable {
 
 if (-not (Test-Path -LiteralPath $venvPython)) {
     Write-Host "Erstelle virtuelle Umgebung..." -ForegroundColor Cyan
-    $pythonInvocation = Resolve-PythonExecutable
-    if ($pythonInvocation.Length -gt 1) {
-        & $pythonInvocation[0] @($pythonInvocation[1..($pythonInvocation.Length - 1)]) -m venv $venvRoot
+    $pythonInvocation = @(Resolve-PythonExecutable)
+    if ($pythonInvocation.Count -gt 1) {
+        $pythonArgs = @($pythonInvocation[1..($pythonInvocation.Count - 1)] + @("-m", "venv", $venvRoot))
+        & $pythonInvocation[0] @pythonArgs
     } else {
         & $pythonInvocation[0] -m venv $venvRoot
     }
