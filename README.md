@@ -166,7 +166,7 @@ systemctl --user disable --now hardware-monitor-client-agent.service
 
 - `SERVER_API_KEY`: Admin-API-Key für Server/Client-Kommunikation
 - `START_ADMIN_USERNAME`: Benutzername für den initialen Admin (Standard `admin`)
-- `START_ADMIN_PASSWORD`: Passwort für den initialen Admin-Benutzer (Login-Screen)
+- `START_ADMIN_PASSWORD`: Passwort für den initialen Admin-Benutzer (Login-Screen, mind. 8 Zeichen + 1 Sonderzeichen)
 - `DATABASE_URL`: SQL-Verbindung (SQLite oder PostgreSQL)
 - `DB_SSLMODE`: optionaler SSL-Modus für PostgreSQL (`require`, `verify-ca`, `verify-full`, ...)
 - `DB_POOL_SIZE`: Größe des DB-Verbindungspools (Standard `10`)
@@ -231,7 +231,10 @@ docker compose up -d --build server
   - **admin** über `SERVER_API_KEY`
   - **admin/user** über Login mit `START_ADMIN_USERNAME` + `START_ADMIN_PASSWORD` (bzw. durch Admin angelegte Nutzer)
   - feinere Berechtigungen z. B. `view_dashboard`, `add_clients`, `delete_clients`, `manage_users`
+    - `add_clients`/`delete_clients`: nur Gerätebestand (Clients) verwalten
+    - `manage_users`: Benutzerkonten anlegen/bearbeiten/löschen
   - Admin-Oberfläche zum Erstellen, Bearbeiten und Löschen von Benutzern im Dashboard
+  - Passwortregeln für Benutzer: mindestens 8 Zeichen und mindestens ein Sonderzeichen
   - **agent** über generierte Client-Tokens (nur Datenupload)
 - Export:
   - JSON, CSV und PDF je Client (`/api/clients/{uid}/export`)
