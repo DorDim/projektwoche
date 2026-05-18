@@ -3,9 +3,16 @@ services:
     image: traefik:v3.1
     container_name: hardware-monitor-traefik
     restart: unless-stopped
+    environment:
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_API_VERSION: ${TRAEFIK_DOCKER_API_VERSION:-1.41}
+      DOCKER_TLS_VERIFY: ""
+      DOCKER_CERT_PATH: ""
     command:
       - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
       - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=monitor-net"
       - "--entrypoints.web.address=:80"
       - "--entrypoints.websecure.address=:443"
       - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
@@ -61,6 +68,7 @@ services:
       - "8000"
     labels:
       - "traefik.enable=true"
+      - "traefik.docker.network=monitor-net"
       - "traefik.http.routers.hardware-monitor-http.rule=Host(`${TRAEFIK_DOMAIN}`)"
       - "traefik.http.routers.hardware-monitor-http.entrypoints=web"
       - "traefik.http.routers.hardware-monitor-http.middlewares=hardware-monitor-https-redirect"
