@@ -466,8 +466,9 @@ def _linux_fan_speed_from_sysfs() -> int | None:
     return None
 
 
-def _windows_open_hardware_sensor_values(sensor_type: str) -> list[float]:
+def _windows_open_hardware_sensor_values(sensor_type: str) -> tuple[list[float], str | None]:
     values: list[float] = []
+    source: str | None = None
     for namespace in ("root/OpenHardwareMonitor", "root/LibreHardwareMonitor"):
         raw = _run_powershell(
             (
@@ -481,11 +482,12 @@ def _windows_open_hardware_sensor_values(sensor_type: str) -> list[float]:
             if value is not None:
                 values.append(value)
         if values:
-            return values
-    return values
+            source = f"windows-open-hardware:{namespace}"
+            return values, source
+    return values, source
 
 
-def _windows_cpu_temperature_fallback() -> float | None:
+def _windows_cpu_temperature_fallback() -> tuple[float | None, str | None]:
     # ACPI values are typically in tenth Kelvin.
     acpi_output = _run_powershell(
         "Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature "
@@ -497,17 +499,17 @@ def _windows_cpu_temperature_fallback() -> float | None:
     ]
     valid_acpi = _valid_temperature_values(acpi_values)
     if valid_acpi:
-        return max(valid_acpi)
+        return max(valid_acpi), "windows-wmi-acpi"
 
-    ohm_values = _windows_open_hardware_sensor_values("Temperature")
+    ohm_values, ohm_source = _windows_open_hardware_sensor_values("Temperature")
     valid_ohm = _valid_temperature_values([_to_float(value) for value in ohm_values])
     if valid_ohm:
-        return max(valid_ohm)
+        return max(valid_ohm), ohm_source
 
-    return None
+    return None, None
 
 
-def _windows_fan_speed_fallback() -> int | None:
+def _windows_fan_speed_fallback() -> tuple[int | None, str | None]:
     speeds: list[int] = []
 
     wmi_output = _run_powershell(
@@ -519,18 +521,18 @@ def _windows_fan_speed_fallback() -> int | None:
             speeds.append(desired)
 
     if speeds:
-        return max(speeds)
+        return max(speeds), "windows-wmi-win32_fan"
 
-    ohm_values = _windows_open_hardware_sensor_values("Fan")
+    ohm_values, ohm_source = _windows_open_hardware_sensor_values("Fan")
     ohm_speeds = [_to_int(value) for value in ohm_values]
     valid = [value for value in ohm_speeds if value is not None and value > 0]
     if valid:
-        return max(valid)
+        return max(valid), ohm_source
 
-    return None
+    return None, None
 
 
-def get_cpu_temperature() -> float | None:
+def get_cpu_temperature_with_source() -> tuple[float | None, str | None]:
     try:
         temperatures = psutil.sensors_temperatures()
     except (AttributeError, OSError):
@@ -540,7 +542,7 @@ def get_cpu_temperature() -> float | None:
             if entry.current is not None:
                 current = _to_float(entry.current)
                 if current is not None:
-                    return round(current, 2)
+                    return round(current, 2), "psutil-sensors_temperatures"
 
     if platform.system().lower() == "windows":
         return _windows_cpu_temperature_fallback()
@@ -553,12 +555,15 @@ def get_cpu_temperature() -> float | None:
             parsed = None
         sensor_temps = _extract_temperatures_from_sensor_json(parsed)
         if sensor_temps:
-            return max(sensor_temps)
+            return max(sensor_temps), "linux-lm-sensors"
 
-    return _linux_cpu_temperature_from_sysfs()
+    sysfs_temp = _linux_cpu_temperature_from_sysfs()
+    if sysfs_temp is not None:
+        return sysfs_temp, "linux-sysfs"
+    return None, None
 
 
-def get_fan_speed() -> int | None:
+def get_fan_speed_with_source() -> tuple[int | None, str | None]:
     try:
         fans = psutil.sensors_fans()
     except (AttributeError, OSError):
@@ -568,7 +573,7 @@ def get_fan_speed() -> int | None:
             if entry.current is not None:
                 current = _to_int(entry.current)
                 if current is not None and current > 0:
-                    return current
+                    return current, "psutil-sensors_fans"
 
     if platform.system().lower() == "windows":
         return _windows_fan_speed_fallback()
@@ -581,13 +586,28 @@ def get_fan_speed() -> int | None:
             parsed = None
         fan_values = _extract_fans_from_sensor_json(parsed)
         if fan_values:
-            return max(fan_values)
+            return max(fan_values), "linux-lm-sensors"
 
-    return _linux_fan_speed_from_sysfs()
+    sysfs_fan = _linux_fan_speed_from_sysfs()
+    if sysfs_fan is not None:
+        return sysfs_fan, "linux-sysfs"
+    return None, None
+
+
+def get_cpu_temperature() -> float | None:
+    value, _ = get_cpu_temperature_with_source()
+    return value
+
+
+def get_fan_speed() -> int | None:
+    value, _ = get_fan_speed_with_source()
+    return value
 
 
 def collect_snapshot() -> dict:
     cpu_info = get_cpu_info()
+    cpu_temperature_c, cpu_temperature_source = get_cpu_temperature_with_source()
+    fan_speed_rpm, fan_speed_source = get_fan_speed_with_source()
     return {
         "hostname": get_hostname(),
         "os_version": get_windows_version(),
@@ -602,6 +622,8 @@ def collect_snapshot() -> dict:
         "disks": get_disks(),
         "network_adapters": get_network_adapters(),
         "uptime_seconds": get_uptime_seconds(),
-        "cpu_temperature_c": get_cpu_temperature(),
-        "fan_speed_rpm": get_fan_speed(),
+        "cpu_temperature_c": cpu_temperature_c,
+        "cpu_temperature_source": cpu_temperature_source,
+        "fan_speed_rpm": fan_speed_rpm,
+        "fan_speed_source": fan_speed_source,
     }

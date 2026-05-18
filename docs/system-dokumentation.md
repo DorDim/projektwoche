@@ -15,6 +15,7 @@ Das System erfasst Hardware- und Betriebsdaten von Clients zentral, speichert si
   - registriert sich am Server
   - sendet Snapshots zyklisch
   - nutzt für CPU-Temperatur/Lüfterdrehzahl mehrere Fallbacks (psutil, OS-Sensorquellen, systemnahe Abfragen)
+  - liefert zusätzlich Diagnosefelder (`cpu_temperature_source`, `fan_speed_source`) zur Nachvollziehbarkeit der Messquelle
 - **API/Backend (FastAPI + SQLAlchemy)**
   - Authentifizierung + Rollen/Rechte
   - Speicherung und Auswertung
