@@ -11,17 +11,43 @@ param(
 $ErrorActionPreference = "Stop"
 
 $repoRoot = Resolve-Path (Join-Path $PSScriptRoot "..")
-$venvPython = Join-Path $repoRoot ".venv\Scripts\python.exe"
+$venvRoot = Join-Path $repoRoot ".venv"
+$venvPython = Join-Path $venvRoot "Scripts\python.exe"
+$requirementsPath = Join-Path $repoRoot "requirements.txt"
 
-if (Test-Path -LiteralPath $venvPython) {
-    $pythonExecutable = $venvPython
-} else {
+function Resolve-PythonExecutable {
     $pythonCommand = Get-Command python -ErrorAction SilentlyContinue
-    if (-not $pythonCommand) {
-        throw "Python nicht gefunden. Bitte zuerst Python installieren oder .venv anlegen."
+    if ($pythonCommand) {
+        return @($pythonCommand.Source)
     }
-    $pythonExecutable = $pythonCommand.Source
+
+    $pyCommand = Get-Command py -ErrorAction SilentlyContinue
+    if ($pyCommand) {
+        return @($pyCommand.Source, "-3")
+    }
+
+    throw "Python nicht gefunden. Bitte zuerst Python 3 installieren."
 }
+
+if (-not (Test-Path -LiteralPath $venvPython)) {
+    Write-Host "Erstelle virtuelle Umgebung..." -ForegroundColor Cyan
+    $pythonInvocation = Resolve-PythonExecutable
+    if ($pythonInvocation.Length -gt 1) {
+        & $pythonInvocation[0] @($pythonInvocation[1..($pythonInvocation.Length - 1)]) -m venv $venvRoot
+    } else {
+        & $pythonInvocation[0] -m venv $venvRoot
+    }
+}
+
+if (-not (Test-Path -LiteralPath $venvPython)) {
+    throw "Virtuelle Umgebung konnte nicht erstellt werden."
+}
+
+$pythonExecutable = $venvPython
+
+Write-Host "Installiere/aktualisiere Python-Abhängigkeiten..." -ForegroundColor Cyan
+& $pythonExecutable -m pip install --upgrade pip | Out-Null
+& $pythonExecutable -m pip install -r $requirementsPath
 
 $configPath = Join-Path $PSScriptRoot "windows_agent_config.json"
 $runnerPath = Join-Path $PSScriptRoot "windows_agent_runner.ps1"

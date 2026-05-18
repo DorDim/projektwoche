@@ -123,18 +123,7 @@ python -m client.agent
 Der Agent kann als geplanter Task laufen, damit kein Terminal offen bleiben muss.
 
 ```powershell
-git clone https://github.com/DorDim/projektwoche.git
-cd projektwoche
-
-python -m venv .venv
-.\.venv\Scripts\Activate.ps1
-pip install -r requirements.txt
-
-powershell -ExecutionPolicy Bypass -File .\client\install_windows_background.ps1 `
-  -ServerUrl "http://DEIN-SERVER:8000" `
-  -ApiKey "DEIN_TOKEN_ODER_SERVER_API_KEY" `
-  -IntervalSeconds 60 `
-  -StartNow
+powershell -NoProfile -ExecutionPolicy Bypass -Command "git clone https://github.com/DorDim/projektwoche.git; cd projektwoche; powershell -ExecutionPolicy Bypass -File .\client\install_windows_background.ps1 -ServerUrl 'http://DEIN-SERVER:8000' -ApiKey 'DEIN_TOKEN_ODER_SERVER_API_KEY' -IntervalSeconds 60 -StartNow"
 ```
 
 Task prüfen:
@@ -147,6 +136,24 @@ Task entfernen:
 
 ```powershell
 Unregister-ScheduledTask -TaskName "HardwareMonitorClientAgent" -Confirm:$false
+```
+
+## Client-Agent im Hintergrund (Linux, Ein-Befehl)
+
+```bash
+bash -lc 'git clone https://github.com/DorDim/projektwoche.git && cd projektwoche && bash ./client/install_linux_background.sh --server-url "http://DEIN-SERVER:8000" --api-key "DEIN_TOKEN_ODER_SERVER_API_KEY" --interval-seconds 60'
+```
+
+Status prüfen:
+
+```bash
+systemctl --user status hardware-monitor-client-agent.service
+```
+
+Entfernen:
+
+```bash
+systemctl --user disable --now hardware-monitor-client-agent.service
 ```
 
 ## Wichtige Umgebungsvariablen

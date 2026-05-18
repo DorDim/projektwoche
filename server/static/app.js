@@ -459,34 +459,11 @@ async function loadAlerts() {
 }
 
 function buildSetupCommandsWindows(serverOrigin, token) {
-  return [
-    `git clone ${REPOSITORY_URL}`,
-    "cd projektwoche",
-    "",
-    "python -m venv .venv",
-    ".\\.venv\\Scripts\\Activate.ps1",
-    "pip install -r requirements.txt",
-    "",
-    `powershell -ExecutionPolicy Bypass -File .\\client\\install_windows_background.ps1 -ServerUrl "${serverOrigin}" -ApiKey "${token}" -IntervalSeconds 60 -StartNow`,
-    "",
-    "# Optional prüfen:",
-    'Get-ScheduledTask -TaskName "HardwareMonitorClientAgent"',
-  ].join("\n");
+  return `powershell -NoProfile -ExecutionPolicy Bypass -Command "git clone ${REPOSITORY_URL}; cd projektwoche; powershell -ExecutionPolicy Bypass -File .\\client\\install_windows_background.ps1 -ServerUrl '${serverOrigin}' -ApiKey '${token}' -IntervalSeconds 60 -StartNow"`;
 }
 
 function buildSetupCommandsLinux(serverOrigin, token) {
-  return `git clone ${REPOSITORY_URL}
-cd projektwoche
-
-python3 -m venv .venv
-source .venv/bin/activate
-pip install -r requirements.txt
-
-export SERVER_URL="${serverOrigin}"
-export SERVER_API_KEY="${token}"
-export AGENT_INTERVAL_SECONDS=60
-
-python -m client.agent`;
+  return `bash -lc 'git clone ${REPOSITORY_URL} && cd projektwoche && bash ./client/install_linux_background.sh --server-url "${serverOrigin}" --api-key "${token}" --interval-seconds 60'`;
 }
 
 function openOnboardingModal() {
