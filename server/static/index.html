@@ -7,7 +7,7 @@
     <link rel="stylesheet" href="/static/tailwind.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
-  <body class="min-h-screen bg-slate-100 text-slate-800">
+  <body data-page="dashboard" class="min-h-screen bg-slate-100 text-slate-800">
     <div id="loginScreen" class="flex min-h-screen items-center justify-center px-4">
       <div class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow">
         <h1 class="text-2xl font-bold">Hardwareüberwachung</h1>
@@ -52,6 +52,11 @@
             <p class="text-sm text-slate-500">Zentrales Monitoring für Clients, Historie und Alerts</p>
           </div>
           <div class="flex flex-wrap items-end gap-3">
+            <nav class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm">
+              <a id="navDashboardLink" href="/" class="rounded px-3 py-1 text-slate-600">Dashboard</a>
+              <a id="navCompareLink" href="/compare" class="rounded px-3 py-1 text-slate-600">Vergleich</a>
+              <a id="navUsersLink" href="/users" class="rounded px-3 py-1 text-slate-600">Nutzer</a>
+            </nav>
             <div class="min-w-52">
               <div class="text-xs uppercase tracking-wide text-slate-500">Anmeldung</div>
               <div id="authState" class="mt-1 text-sm font-medium text-emerald-700">Nicht angemeldet</div>
@@ -184,34 +189,6 @@
       </section>
 
       <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <h2 class="mb-3 text-lg font-semibold">Vergleich (ausgewählte Clients)</h2>
-        <div id="compareSummaryCards" class="mb-4 grid gap-3 md:grid-cols-3">
-          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-            Wähle Clients über die Checkboxen, um den Vergleich zu sehen.
-          </div>
-        </div>
-        <div class="mb-4 rounded-lg border border-slate-200 p-3">
-          <h3 class="mb-2 font-semibold">Visueller Vergleich: RAM & freier Speicher</h3>
-          <canvas id="compareChart"></canvas>
-        </div>
-        <div class="overflow-x-auto">
-          <table id="compareTable" class="min-w-full divide-y divide-slate-200 text-sm">
-            <thead class="bg-slate-50">
-              <tr>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">Hostname</th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">UID</th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">CPU Threads</th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">RAM (MB)</th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">Min. freier Speicher (%)</th>
-                <th class="px-3 py-2 text-left font-semibold text-slate-600">Uptime (s)</th>
-              </tr>
-            </thead>
-            <tbody class="divide-y divide-slate-100 bg-white"></tbody>
-          </table>
-        </div>
-      </section>
-
-      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 class="mb-3 text-lg font-semibold">Aktuelle Alerts</h2>
         <div class="overflow-x-auto">
           <table id="alertsTable" class="min-w-full divide-y divide-slate-200 text-sm">
@@ -228,128 +205,7 @@
           </table>
         </div>
       </section>
-      <section id="userManagementSection" class="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-        <div class="mb-4 flex items-center justify-between">
-          <h2 class="text-lg font-semibold">Nutzerverwaltung</h2>
-        </div>
-        <div class="grid gap-4 lg:grid-cols-2">
-          <div class="rounded-lg border border-slate-200 p-3">
-            <h3 class="mb-3 font-semibold">Neuen Benutzer erstellen</h3>
-            <form id="createUserForm" class="space-y-3 text-sm">
-              <label class="block">
-                Benutzername
-                <input id="newUserUsername" required class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
-              </label>
-              <label class="block">
-                Passwort
-                <input id="newUserPassword" type="password" required class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2" />
-              </label>
-              <label class="block">
-                Rolle
-                <select id="newUserRole" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                  <option value="user">User</option>
-                  <option value="admin">Admin</option>
-                </select>
-              </label>
-              <div class="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
-                <label><input type="checkbox" id="permViewDashboard" checked /> Dashboard ansehen</label>
-                <label><input type="checkbox" id="permAddClients" /> Clients hinzufügen</label>
-                <label><input type="checkbox" id="permDeleteClients" /> Clients löschen</label>
-                <label><input type="checkbox" id="permManageUsers" /> Nutzer verwalten</label>
-                <label><input type="checkbox" id="permManageAlertRules" /> Alert-Regeln verwalten</label>
-                <label><input type="checkbox" id="permViewEvents" /> Events ansehen</label>
-              </div>
-              <button class="rounded-lg bg-indigo-600 px-4 py-2 font-medium text-white hover:bg-indigo-700" type="submit">
-                Benutzer erstellen
-              </button>
-            </form>
-          </div>
-          <div class="rounded-lg border border-slate-200 p-3">
-            <h3 class="mb-3 font-semibold">Vorhandene Benutzer</h3>
-            <div class="overflow-x-auto">
-              <table id="usersTable" class="min-w-full divide-y divide-slate-200 text-sm">
-                <thead class="bg-slate-50">
-                  <tr>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Benutzer</th>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Rolle</th>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Rechte</th>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Aktiv</th>
-                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Aktionen</th>
-                  </tr>
-                </thead>
-                <tbody class="divide-y divide-slate-100 bg-white"></tbody>
-              </table>
-            </div>
-          </div>
-        </div>
-      </section>
     </main>
-    </div>
-
-    <div
-      id="editUserModal"
-      class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4"
-      aria-hidden="true"
-    >
-      <div class="w-full max-w-xl rounded-xl bg-white shadow-2xl">
-        <div class="flex items-start justify-between border-b border-slate-200 px-5 py-4">
-          <div>
-            <h2 class="text-xl font-semibold">Benutzer bearbeiten</h2>
-            <p class="text-sm text-slate-500">Rolle, Rechte, Aktiv-Status und optional Passwort ändern</p>
-          </div>
-          <button id="closeEditUserModalBtn" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">✕</button>
-        </div>
-        <form id="editUserForm" class="space-y-3 px-5 py-4 text-sm">
-          <input id="editUserId" type="hidden" />
-          <label class="block">
-            Benutzername
-            <input id="editUserUsername" readonly class="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2" />
-          </label>
-          <label class="block">
-            Neues Passwort (optional)
-            <input
-              id="editUserPassword"
-              type="password"
-              placeholder="Leer lassen, um Passwort unverändert zu lassen"
-              class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
-            />
-          </label>
-          <div class="grid gap-3 sm:grid-cols-2">
-            <label class="block">
-              Rolle
-              <select id="editUserRole" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
-                <option value="user">User</option>
-                <option value="admin">Admin</option>
-              </select>
-            </label>
-            <label class="mt-7 inline-flex items-center gap-2">
-              <input id="editUserActive" type="checkbox" />
-              Aktiv
-            </label>
-          </div>
-          <div class="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
-            <label><input type="checkbox" id="editPermViewDashboard" /> Dashboard ansehen</label>
-            <label><input type="checkbox" id="editPermAddClients" /> Clients hinzufügen</label>
-            <label><input type="checkbox" id="editPermDeleteClients" /> Clients löschen</label>
-            <label><input type="checkbox" id="editPermManageUsers" /> Nutzer verwalten</label>
-            <label><input type="checkbox" id="editPermManageAlertRules" /> Alert-Regeln verwalten</label>
-            <label><input type="checkbox" id="editPermViewEvents" /> Events ansehen</label>
-          </div>
-          <p id="editUserHint" class="hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"></p>
-          <div class="flex justify-end gap-2">
-            <button
-              id="cancelEditUserBtn"
-              type="button"
-              class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
-            >
-              Abbrechen
-            </button>
-            <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
-              Änderungen speichern
-            </button>
-          </div>
-        </form>
-      </div>
     </div>
 
     <div

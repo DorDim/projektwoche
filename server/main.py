@@ -510,6 +510,16 @@ def index():
     return FileResponse(static_dir / "index.html")
 
 
+@app.get("/compare")
+def compare_page():
+    return FileResponse(static_dir / "compare.html")
+
+
+@app.get("/users")
+def users_page():
+    return FileResponse(static_dir / "users.html")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc)}

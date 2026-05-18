@@ -82,7 +82,9 @@ docker compose ps
 docker compose logs -f server
 ```
 
-Dashboard: `http://localhost:8000`
+Dashboard: `http://localhost:8000`  
+Vergleichsseite: `http://localhost:8000/compare`  
+Nutzerverwaltung: `http://localhost:8000/users`
 
 Stoppen:
 

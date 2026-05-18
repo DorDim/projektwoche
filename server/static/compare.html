@@ -1,0 +1,131 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hardwareüberwachung – Vergleich</title>
+    <link rel="stylesheet" href="/static/tailwind.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body data-page="compare" class="min-h-screen bg-slate-100 text-slate-800">
+    <div id="loginScreen" class="flex min-h-screen items-center justify-center px-4">
+      <div class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow">
+        <h1 class="text-2xl font-bold">Hardwareüberwachung</h1>
+        <p class="mt-1 text-sm text-slate-500">Bitte anmelden, um die Vergleichsseite zu öffnen.</p>
+        <form id="loginForm" class="mt-6 space-y-4">
+          <label class="block text-sm font-medium text-slate-700">
+            Benutzername
+            <input
+              id="loginUsername"
+              type="text"
+              autocomplete="username"
+              required
+              class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </label>
+          <label class="block text-sm font-medium text-slate-700">
+            Passwort
+            <input
+              id="loginPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+              class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </label>
+          <p id="loginError" class="hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"></p>
+          <button type="submit" class="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            Anmelden
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div id="dashboardApp" class="hidden">
+      <header class="border-b border-slate-200 bg-white">
+        <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 class="text-2xl font-bold">Hardwareüberwachung</h1>
+            <p class="text-sm text-slate-500">Vergleich mehrerer Clients</p>
+          </div>
+          <div class="flex flex-wrap items-end gap-3">
+            <nav class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm">
+              <a id="navDashboardLink" href="/" class="rounded px-3 py-1 text-slate-600">Dashboard</a>
+              <a id="navCompareLink" href="/compare" class="rounded px-3 py-1 text-slate-600">Vergleich</a>
+              <a id="navUsersLink" href="/users" class="rounded px-3 py-1 text-slate-600">Nutzer</a>
+            </nav>
+            <div class="min-w-52">
+              <div class="text-xs uppercase tracking-wide text-slate-500">Anmeldung</div>
+              <div id="authState" class="mt-1 text-sm font-medium text-emerald-700">Nicht angemeldet</div>
+            </div>
+            <button id="refreshBtn" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700">
+              Aktualisieren
+            </button>
+            <button
+              id="logoutBtn"
+              class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow hover:bg-slate-50"
+            >
+              Abmelden
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="mx-auto grid w-full max-w-7xl gap-4 px-4 py-4">
+        <div id="errorBanner" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+
+        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 class="mb-3 text-lg font-semibold">Clients auswählen</h2>
+          <div class="overflow-x-auto">
+            <table id="clientsTable" class="min-w-full divide-y divide-slate-200 text-sm">
+              <thead class="bg-slate-50">
+                <tr>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600"></th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Hostname</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">UID</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Status</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">CPU Threads</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">RAM (MB)</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Min. freier Speicher (%)</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Letzter Kontakt</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Aktion</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 bg-white"></tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+          <h2 class="mb-3 text-lg font-semibold">Vergleich (ausgewählte Clients)</h2>
+          <div id="compareSummaryCards" class="mb-4 grid gap-3 md:grid-cols-3">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+              Wähle Clients über die Checkboxen, um den Vergleich zu sehen.
+            </div>
+          </div>
+          <div class="mb-4 rounded-lg border border-slate-200 p-3">
+            <h3 class="mb-2 font-semibold">Visueller Vergleich: RAM & freier Speicher</h3>
+            <canvas id="compareChart"></canvas>
+          </div>
+          <div class="overflow-x-auto">
+            <table id="compareTable" class="min-w-full divide-y divide-slate-200 text-sm">
+              <thead class="bg-slate-50">
+                <tr>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Hostname</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">UID</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">CPU Threads</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">RAM (MB)</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Min. freier Speicher (%)</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Uptime (s)</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 bg-white"></tbody>
+            </table>
+          </div>
+        </section>
+      </main>
+    </div>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
