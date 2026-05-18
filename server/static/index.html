@@ -1,0 +1,92 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hardwareueberwachung</title>
+    <link rel="stylesheet" href="/static/styles.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body>
+    <header>
+      <h1>Hardwareueberwachung</h1>
+      <div class="toolbar">
+        <label>
+          API-Key
+          <input id="apiKey" type="password" value="change-me" />
+        </label>
+        <button id="refreshBtn">Aktualisieren</button>
+      </div>
+    </header>
+
+    <main>
+      <section class="panel">
+        <h2>Clients</h2>
+        <table id="clientsTable">
+          <thead>
+            <tr>
+              <th></th>
+              <th>Hostname</th>
+              <th>UID</th>
+              <th>Status</th>
+              <th>CPU Threads</th>
+              <th>RAM (MB)</th>
+              <th>Min. freier Speicher (%)</th>
+              <th>Letzter Kontakt</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2 id="detailsTitle">Client-Details</h2>
+        <div class="detail-grid">
+          <div>
+            <h3>Historie</h3>
+            <canvas id="historyChart"></canvas>
+          </div>
+          <div>
+            <h3>Letzte Hardwaredaten</h3>
+            <pre id="snapshotDetails">Bitte Client auswaehlen</pre>
+          </div>
+        </div>
+      </section>
+
+      <section class="panel">
+        <h2>Vergleich (ausgewaehlte Clients)</h2>
+        <table id="compareTable">
+          <thead>
+            <tr>
+              <th>Hostname</th>
+              <th>UID</th>
+              <th>CPU Threads</th>
+              <th>RAM (MB)</th>
+              <th>Min. freier Speicher (%)</th>
+              <th>Uptime (s)</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+
+      <section class="panel">
+        <h2>Aktuelle Alerts</h2>
+        <table id="alertsTable">
+          <thead>
+            <tr>
+              <th>Zeitpunkt</th>
+              <th>Client</th>
+              <th>Regel</th>
+              <th>Wert</th>
+              <th>Meldung</th>
+            </tr>
+          </thead>
+          <tbody></tbody>
+        </table>
+      </section>
+    </main>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>

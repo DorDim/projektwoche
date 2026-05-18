@@ -1,0 +1,28 @@
+@startuml
+start
+:Agent startet;
+:Client-ID laden/erzeugen;
+:Beim Server registrieren;
+
+repeat
+  :Hardwaredaten auslesen;
+  :Snapshot an Server senden;
+
+  if (Server erreichbar?) then (ja)
+    :Daten validieren;
+    :In SQL-Datenbank speichern;
+    :Grenzwerte pruefen;
+    if (Grenzwert verletzt?) then (ja)
+      :Alarm erzeugen;
+    else (nein)
+      :Kein Alarm;
+    endif
+    :Dashboard aktualisieren;
+  else (nein)
+    :Fehler loggen;
+    :Exponential Backoff;
+  endif
+
+repeat while (Agent aktiv?)
+stop
+@enduml

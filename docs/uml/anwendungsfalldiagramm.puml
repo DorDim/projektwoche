@@ -1,0 +1,33 @@
+@startuml
+left to right direction
+skinparam packageStyle rectangle
+
+actor "Administrator" as Admin
+actor "Client-Agent" as Agent
+
+rectangle "Server-System" {
+  usecase "Client registrieren" as UC1
+  usecase "Hardwaredaten empfangen" as UC2
+  usecase "Hardwaredaten speichern\n(SQL-Datenbank)" as UC3
+  usecase "Historie pro Client anzeigen" as UC4
+  usecase "Mehrere Clients vergleichen" as UC5
+  usecase "Grenzwerte pruefen" as UC6
+  usecase "Alarm ausgeben" as UC7
+  usecase "Client-Status verwalten\n(online/offline)" as UC8
+}
+
+Agent --> UC1
+Agent --> UC2
+UC2 --> UC3
+UC2 --> UC6
+UC6 --> UC7
+UC3 --> UC4
+UC3 --> UC5
+UC1 --> UC8
+UC2 --> UC8
+
+Admin --> UC4
+Admin --> UC5
+Admin --> UC7
+Admin --> UC6
+@enduml
