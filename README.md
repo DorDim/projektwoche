@@ -69,22 +69,34 @@ npm run build:css
 cp .env.example .env
 ```
 
-2. Stack starten (Server + PostgreSQL):
+2. `.env` anpassen (Traefik + Zertifikate):
+
+```env
+TRAEFIK_DOMAIN=monitor.example.com
+TRAEFIK_ACME_EMAIL=admin@example.com
+```
+
+Wichtig:
+- DNS `A`/`AAAA` Record der Domain muss auf deinen Server zeigen.
+- Ports `80` und `443` müssen von außen erreichbar sein.
+
+3. Stack starten (Traefik + Server + PostgreSQL):
 
 ```bash
 docker compose up -d --build
 ```
 
-3. Prüfen:
+4. Prüfen:
 
 ```bash
 docker compose ps
+docker compose logs -f traefik
 docker compose logs -f server
 ```
 
-Dashboard: `http://localhost:8000`  
-Vergleichsseite: `http://localhost:8000/compare`  
-Nutzerverwaltung: `http://localhost:8000/users`
+Dashboard: `https://DEINE_DOMAIN`  
+Vergleichsseite: `https://DEINE_DOMAIN/compare`  
+Nutzerverwaltung: `https://DEINE_DOMAIN/users`
 
 Stoppen:
 
@@ -167,6 +179,8 @@ systemctl --user disable --now hardware-monitor-client-agent.service
 - `SERVER_API_KEY`: Admin-API-Key für Server/Client-Kommunikation
 - `START_ADMIN_USERNAME`: Benutzername für den initialen Admin (Standard `admin`)
 - `START_ADMIN_PASSWORD`: Passwort für den initialen Admin-Benutzer (Login-Screen, mind. 8 Zeichen + 1 Sonderzeichen)
+- `TRAEFIK_DOMAIN`: öffentliche Domain für HTTPS-Routing via Traefik
+- `TRAEFIK_ACME_EMAIL`: E-Mail für Let's Encrypt (ACME)
 - `DATABASE_URL`: SQL-Verbindung (SQLite oder PostgreSQL)
 - `DB_SSLMODE`: optionaler SSL-Modus für PostgreSQL (`require`, `verify-ca`, `verify-full`, ...)
 - `DB_POOL_SIZE`: Größe des DB-Verbindungspools (Standard `10`)

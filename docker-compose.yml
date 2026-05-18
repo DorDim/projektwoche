@@ -1,4 +1,26 @@
 services:
+  traefik:
+    image: traefik:v3.1
+    container_name: hardware-monitor-traefik
+    restart: unless-stopped
+    command:
+      - "--providers.docker=true"
+      - "--providers.docker.exposedbydefault=false"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
+    ports:
+      - "80:80"
+      - "443:443"
+    volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
+      - letsencrypt_data:/letsencrypt
+    networks:
+      - monitor-net
+
   postgres:
     image: postgres:16-alpine
     container_name: hardware-monitor-postgres
@@ -35,8 +57,19 @@ services:
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-20}
       DB_SSLMODE: ${DB_SSLMODE:-}
-    ports:
-      - "${SERVER_PORT:-8000}:8000"
+    expose:
+      - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.http.routers.hardware-monitor-http.rule=Host(`${TRAEFIK_DOMAIN}`)"
+      - "traefik.http.routers.hardware-monitor-http.entrypoints=web"
+      - "traefik.http.routers.hardware-monitor-http.middlewares=hardware-monitor-https-redirect"
+      - "traefik.http.middlewares.hardware-monitor-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.hardware-monitor.rule=Host(`${TRAEFIK_DOMAIN}`)"
+      - "traefik.http.routers.hardware-monitor.entrypoints=websecure"
+      - "traefik.http.routers.hardware-monitor.tls=true"
+      - "traefik.http.routers.hardware-monitor.tls.certresolver=letsencrypt"
+      - "traefik.http.services.hardware-monitor.loadbalancer.server.port=8000"
     healthcheck:
       test:
         [
@@ -54,6 +87,7 @@ services:
 
 volumes:
   postgres_data:
+  letsencrypt_data:
 
 networks:
   monitor-net:
