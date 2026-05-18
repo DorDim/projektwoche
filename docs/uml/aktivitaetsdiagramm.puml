@@ -11,7 +11,7 @@ repeat
   if (Server erreichbar?) then (ja)
     :Daten validieren;
     :In SQL-Datenbank speichern;
-    :Grenzwerte pruefen;
+    :Grenzwerte prüfen;
     if (Grenzwert verletzt?) then (ja)
       :Alarm erzeugen;
     else (nein)

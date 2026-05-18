@@ -118,3 +118,15 @@ class CompareClientRow(BaseModel):
     ram_total_mb: float | None
     min_disk_free_percent: float | None
     uptime_seconds: int | None
+
+
+class OnboardingTokenCreate(BaseModel):
+    name: str | None = None
+
+
+class OnboardingTokenOut(BaseModel):
+    name: str
+    token: str
+    created_at: datetime
+    server_origin: str
+    server_host: str

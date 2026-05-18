@@ -87,3 +87,13 @@ class AlertEvent(Base):
     rule: Mapped["AlertRule"] = relationship(back_populates="alerts")
     snapshot: Mapped["HardwareSnapshot"] = relationship(back_populates="alerts")
     client: Mapped["Client"] = relationship(back_populates="alerts")
+
+
+class ApiToken(Base):
+    __tablename__ = "api_tokens"
+
+    id: Mapped[int] = mapped_column(Integer, primary_key=True)
+    name: Mapped[str] = mapped_column(String(128), index=True)
+    token_hash: Mapped[str] = mapped_column(String(128), unique=True, index=True)
+    created_at: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    enabled: Mapped[bool] = mapped_column(Boolean, default=True)

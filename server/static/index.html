@@ -3,89 +3,189 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hardwareueberwachung</title>
-    <link rel="stylesheet" href="/static/styles.css" />
+    <title>Hardwareüberwachung</title>
+    <script src="https://cdn.tailwindcss.com"></script>
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
-  <body>
-    <header>
-      <h1>Hardwareueberwachung</h1>
-      <div class="toolbar">
-        <label>
-          API-Key
-          <input id="apiKey" type="password" value="change-me" />
-        </label>
-        <button id="refreshBtn">Aktualisieren</button>
+  <body class="min-h-screen bg-slate-100 text-slate-800">
+    <header class="border-b border-slate-200 bg-white">
+      <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+        <div>
+          <h1 class="text-2xl font-bold">Hardwareüberwachung</h1>
+          <p class="text-sm text-slate-500">Zentrales Monitoring für Clients, Historie und Alerts</p>
+        </div>
+        <div class="flex flex-wrap items-end gap-3">
+          <label class="text-sm font-medium text-slate-700">
+            API-Key
+            <input
+              id="apiKey"
+              type="password"
+              value="change-me"
+              class="mt-1 block w-64 rounded-lg border border-slate-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </label>
+          <button
+            id="refreshBtn"
+            class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700"
+          >
+            Aktualisieren
+          </button>
+          <button
+            id="openOnboardingBtn"
+            class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-emerald-700"
+          >
+            Neuen Client hinzufügen
+          </button>
+        </div>
       </div>
     </header>
 
-    <main>
-      <section class="panel">
-        <h2>Clients</h2>
-        <table id="clientsTable">
-          <thead>
-            <tr>
-              <th></th>
-              <th>Hostname</th>
-              <th>UID</th>
-              <th>Status</th>
-              <th>CPU Threads</th>
-              <th>RAM (MB)</th>
-              <th>Min. freier Speicher (%)</th>
-              <th>Letzter Kontakt</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+    <main class="mx-auto grid w-full max-w-7xl gap-4 px-4 py-4">
+      <div id="errorBanner" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 class="mb-3 text-lg font-semibold">Clients</h2>
+        <div class="overflow-x-auto">
+          <table id="clientsTable" class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600"></th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Hostname</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">UID</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Status</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">CPU Threads</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">RAM (MB)</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Min. freier Speicher (%)</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Letzter Kontakt</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white"></tbody>
+          </table>
+        </div>
       </section>
 
-      <section class="panel">
-        <h2 id="detailsTitle">Client-Details</h2>
-        <div class="detail-grid">
-          <div>
-            <h3>Historie</h3>
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 id="detailsTitle" class="mb-3 text-lg font-semibold">Client-Details</h2>
+        <div class="grid gap-4 xl:grid-cols-2">
+          <div class="rounded-lg border border-slate-200 p-3">
+            <h3 class="mb-3 font-semibold">Historie</h3>
             <canvas id="historyChart"></canvas>
           </div>
-          <div>
-            <h3>Letzte Hardwaredaten</h3>
-            <pre id="snapshotDetails">Bitte Client auswaehlen</pre>
+          <div class="rounded-lg border border-slate-200 p-3">
+            <h3 class="mb-3 font-semibold">Letzte Hardwaredaten</h3>
+            <pre
+              id="snapshotDetails"
+              class="max-h-96 overflow-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100"
+            >
+Bitte Client auswählen</pre
+            >
           </div>
         </div>
       </section>
 
-      <section class="panel">
-        <h2>Vergleich (ausgewaehlte Clients)</h2>
-        <table id="compareTable">
-          <thead>
-            <tr>
-              <th>Hostname</th>
-              <th>UID</th>
-              <th>CPU Threads</th>
-              <th>RAM (MB)</th>
-              <th>Min. freier Speicher (%)</th>
-              <th>Uptime (s)</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 class="mb-3 text-lg font-semibold">Vergleich (ausgewählte Clients)</h2>
+        <div class="overflow-x-auto">
+          <table id="compareTable" class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Hostname</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">UID</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">CPU Threads</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">RAM (MB)</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Min. freier Speicher (%)</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Uptime (s)</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white"></tbody>
+          </table>
+        </div>
       </section>
 
-      <section class="panel">
-        <h2>Aktuelle Alerts</h2>
-        <table id="alertsTable">
-          <thead>
-            <tr>
-              <th>Zeitpunkt</th>
-              <th>Client</th>
-              <th>Regel</th>
-              <th>Wert</th>
-              <th>Meldung</th>
-            </tr>
-          </thead>
-          <tbody></tbody>
-        </table>
+      <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 class="mb-3 text-lg font-semibold">Aktuelle Alerts</h2>
+        <div class="overflow-x-auto">
+          <table id="alertsTable" class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Zeitpunkt</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Client</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Regel</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Wert</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Meldung</th>
+              </tr>
+            </thead>
+            <tbody class="divide-y divide-slate-100 bg-white"></tbody>
+          </table>
+        </div>
       </section>
     </main>
+
+    <div
+      id="onboardingModal"
+      class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4"
+      aria-hidden="true"
+    >
+      <div class="max-h-[90vh] w-full max-w-3xl overflow-y-auto rounded-xl bg-white shadow-2xl">
+        <div class="flex items-start justify-between border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 class="text-xl font-semibold">Neuen Client hinzufügen</h2>
+            <p class="text-sm text-slate-500">Schritt-für-Schritt-Einrichtung inklusive Token und Server-Adresse</p>
+          </div>
+          <button id="closeOnboardingBtn" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">✕</button>
+        </div>
+
+        <div class="space-y-4 px-5 py-4 text-sm">
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+            <p><span class="font-semibold">Server-URL:</span> <span id="serverOriginValue">-</span></p>
+            <p><span class="font-semibold">IP/Domain:</span> <span id="serverHostValue">-</span></p>
+          </div>
+
+          <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+            <div class="mb-2 flex flex-wrap items-center justify-between gap-2">
+              <p class="font-semibold text-emerald-800">Automatisch generierter Client-Token</p>
+              <div class="flex gap-2">
+                <button
+                  id="regenerateTokenBtn"
+                  class="rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                >
+                  Neu generieren
+                </button>
+                <button
+                  id="copyTokenBtn"
+                  class="rounded-md border border-emerald-300 bg-white px-3 py-1 text-xs font-medium text-emerald-700 hover:bg-emerald-100"
+                >
+                  Token kopieren
+                </button>
+              </div>
+            </div>
+            <input
+              id="generatedToken"
+              readonly
+              class="w-full rounded-md border border-emerald-300 bg-white px-3 py-2 font-mono text-xs"
+            />
+          </div>
+
+          <div class="rounded-lg border border-slate-200 p-3">
+            <h3 class="mb-2 font-semibold">Schritt-für-Schritt</h3>
+            <ol class="list-decimal space-y-2 pl-5">
+              <li>Auf dem Zielrechner Python 3 installieren.</li>
+              <li>Projekt/Client-Dateien auf den Zielrechner kopieren oder Repository klonen.</li>
+              <li>Virtuelle Umgebung anlegen und Abhängigkeiten installieren.</li>
+              <li>Server-Adresse und Token als Umgebungsvariablen setzen.</li>
+              <li>Client-Agent starten und im Dashboard prüfen, ob der neue Client erscheint.</li>
+            </ol>
+          </div>
+
+          <div class="rounded-lg border border-slate-200 p-3">
+            <h3 class="mb-2 font-semibold">Beispielbefehle (Linux/macOS)</h3>
+            <pre id="setupCommands" class="overflow-x-auto rounded-lg bg-slate-900 p-3 text-xs text-slate-100"></pre>
+          </div>
+
+          <div id="onboardingStatus" class="hidden rounded-md border px-3 py-2 text-xs"></div>
+        </div>
+      </div>
+    </div>
 
     <script src="/static/app.js"></script>
   </body>

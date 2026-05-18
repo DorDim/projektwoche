@@ -1,8 +1,10 @@
+import hashlib
+import secrets
 from datetime import datetime, timezone
 from pathlib import Path
 from typing import Annotated
 
-from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query
+from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, Request
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse
 from fastapi.staticfiles import StaticFiles
@@ -12,7 +14,7 @@ from sqlalchemy.orm import Session
 from server.alerts import evaluate_rule, metric_value_for_rule
 from server.config import settings
 from server.database import Base, engine, get_db
-from server.models import AlertEvent, AlertRule, Client, HardwareSnapshot, utc_now
+from server.models import AlertEvent, AlertRule, ApiToken, Client, HardwareSnapshot, utc_now
 from server.schemas import (
     AlertEventOut,
     AlertRuleIn,
@@ -21,12 +23,14 @@ from server.schemas import (
     ClientSnapshotSummary,
     CompareClientRow,
     HardwareSnapshotIn,
+    OnboardingTokenCreate,
+    OnboardingTokenOut,
     RegisterClientRequest,
     RegisterClientResponse,
     SnapshotOut,
 )
 
-app = FastAPI(title="Hardwareueberwachung", version="0.1.0")
+app = FastAPI(title="Hardwareüberwachung", version="0.1.0")
 app.add_middleware(
     CORSMiddleware,
     allow_origins=["*"],
@@ -39,9 +43,41 @@ static_dir = Path(__file__).resolve().parent / "static"
 app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 
 
-def require_api_key(x_api_key: Annotated[str | None, Header()] = None):
+def hash_token(token: str) -> str:
+    return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def server_origin_and_host(request: Request) -> tuple[str, str]:
+    forwarded_proto = request.headers.get("x-forwarded-proto")
+    forwarded_host = request.headers.get("x-forwarded-host")
+    scheme = forwarded_proto.split(",")[0].strip() if forwarded_proto else request.url.scheme
+    host = forwarded_host.split(",")[0].strip() if forwarded_host else request.headers.get("host", "")
+    if not host:
+        host = request.url.netloc
+    return f"{scheme}://{host}", host
+
+
+def require_api_key(
+    x_api_key: Annotated[str | None, Header()] = None,
+    db: Session = Depends(get_db),
+):
+    if not x_api_key:
+        raise HTTPException(status_code=401, detail="fehlender API-Schlüssel")
+    if x_api_key == settings.api_key:
+        return
+    token = db.scalar(
+        select(ApiToken).where(
+            ApiToken.token_hash == hash_token(x_api_key),
+            ApiToken.enabled.is_(True),
+        )
+    )
+    if token is None:
+        raise HTTPException(status_code=401, detail="ungültiger API-Schlüssel")
+
+
+def require_admin_api_key(x_api_key: Annotated[str | None, Header()] = None):
     if x_api_key != settings.api_key:
-        raise HTTPException(status_code=401, detail="ungueltiger API-Schluessel")
+        raise HTTPException(status_code=403, detail="nur mit Admin-API-Schlüssel erlaubt")
 
 
 api = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
@@ -137,7 +173,7 @@ def register_client(payload: RegisterClientRequest, db: Session = Depends(get_db
 def ingest_snapshot(client_uid: str, payload: HardwareSnapshotIn, db: Session = Depends(get_db)):
     client = db.scalar(select(Client).where(Client.client_uid == client_uid))
     if client is None:
-        raise HTTPException(status_code=404, detail="client nicht registriert")
+        raise HTTPException(status_code=404, detail="Client nicht registriert")
 
     now = utc_now()
     collected_at = payload.collected_at or now
@@ -228,7 +264,7 @@ def list_snapshots(
 ):
     client = db.scalar(select(Client).where(Client.client_uid == client_uid))
     if client is None:
-        raise HTTPException(status_code=404, detail="client nicht gefunden")
+        raise HTTPException(status_code=404, detail="Client nicht gefunden")
     snapshots = db.scalars(
         select(HardwareSnapshot)
         .where(HardwareSnapshot.client_id == client.id)
@@ -311,7 +347,7 @@ def create_alert_rule(payload: AlertRuleIn, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=409, detail="Regelname bereits vorhanden")
     if payload.comparator not in {"lt", "gt"}:
-        raise HTTPException(status_code=422, detail="comparator muss lt oder gt sein")
+        raise HTTPException(status_code=422, detail="Comparator muss lt oder gt sein")
     rule = AlertRule(
         name=payload.name,
         metric=payload.metric,
@@ -342,6 +378,32 @@ def update_alert_rule(
     db.commit()
     db.refresh(rule)
     return rule
+
+
+@api.post(
+    "/onboarding-tokens",
+    response_model=OnboardingTokenOut,
+    dependencies=[Depends(require_admin_api_key)],
+)
+def create_onboarding_token(
+    payload: OnboardingTokenCreate,
+    request: Request,
+    db: Session = Depends(get_db),
+):
+    token_value = secrets.token_urlsafe(32)
+    token_name = payload.name or f"Client-Token-{int(datetime.now(timezone.utc).timestamp())}"
+    api_token = ApiToken(name=token_name, token_hash=hash_token(token_value), enabled=True)
+    db.add(api_token)
+    db.commit()
+    db.refresh(api_token)
+    origin, host = server_origin_and_host(request)
+    return OnboardingTokenOut(
+        name=api_token.name,
+        token=token_value,
+        created_at=api_token.created_at,
+        server_origin=origin,
+        server_host=host,
+    )
 
 
 app.include_router(api)

@@ -11,7 +11,7 @@ rectangle "Server-System" {
   usecase "Hardwaredaten speichern\n(SQL-Datenbank)" as UC3
   usecase "Historie pro Client anzeigen" as UC4
   usecase "Mehrere Clients vergleichen" as UC5
-  usecase "Grenzwerte pruefen" as UC6
+  usecase "Grenzwerte prüfen" as UC6
   usecase "Alarm ausgeben" as UC7
   usecase "Client-Status verwalten\n(online/offline)" as UC8
 }

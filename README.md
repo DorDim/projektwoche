@@ -1,9 +1,9 @@
-# Projekt: Hardwareueberwachung (Prototyp)
+# Projekt: Hardwareüberwachung (Prototyp)
 
-Dieser Prototyp implementiert ein zentrales Monitoring-System fuer Hardwareparameter in einem Rechnernetz.
+Dieser Prototyp implementiert ein zentrales Monitoring-System für Hardwareparameter in einem Rechnernetz.
 Er besteht aus:
 
-- **Client-Agent** (`client/agent.py`) zur Erfassung und Uebertragung von Hardwaredaten
+- **Client-Agent** (`client/agent.py`) zur Erfassung und Übertragung von Hardwaredaten
 - **Server-System** (`server/main.py`) zur Verwaltung, Speicherung (SQL), Auswertung und Visualisierung
 
 ## Verwendete Technologien (kostenfrei)
@@ -12,10 +12,11 @@ Er besteht aus:
 - **FastAPI** (REST-API + Webserver)
 - **SQLAlchemy** (ORM)
 - **SQLite** als Standard (relationale SQL-Datenbank, optional externe PostgreSQL via `DATABASE_URL`)
-- **psutil** fuer Hardware-/Systemdaten
-- **Chart.js** fuer Diagramme im Browser
+- **psutil** für Hardware-/Systemdaten
+- **Chart.js** für Diagramme
+- **Tailwind CSS** für das Web-Interface
 
-## Architekturuebersicht
+## Architekturübersicht
 
 1. Client-Agent sammelt Hardwaredaten lokal.
 2. Agent registriert sich automatisch am Server (`/api/clients/register`).
@@ -25,75 +26,30 @@ Er besteht aus:
    - `hardware_snapshots`
    - `alert_rules`
    - `alert_events`
+   - `api_tokens`
 5. Dashboard zeigt aktuelle + historische Daten und Client-Vergleiche an.
 6. Alerts werden bei Regelverletzungen automatisch erzeugt.
 
-## Funktionsabdeckung gemaess Aufgabenstellung
+## Neues Web-Feature: „Neuen Client hinzufügen“
 
-### a) Client-Agent
+Im Dashboard gibt es den Button **„Neuen Client hinzufügen“**.  
+Darüber erhältst du:
 
-Erfasst:
+- automatisch generierten Client-Token
+- erkannte Server-URL + IP/Domain
+- Schritt-für-Schritt-Anleitung
+- sofort kopierbare Beispielbefehle für den Agent-Start
 
-- Computername
-- CPU (Kerne, Threads, Max-Takt)
-- RAM
-- GPU (mit Fallbacks)
-- Mainboard-Hersteller
-- BIOS/UEFI-Hersteller
-- Laufwerke (belegt/frei + Prozentwerte)
-- Windows-/OS-Version
-- Netzwerkadapter
-- IP/MAC
-- Uptime
-- CPU-Temperatur (optional, falls Sensor verfuegbar)
-- Luefterdrehzahl (optional, falls Sensor verfuegbar)
-
-Funktionalitaeten:
-
-- Hardwaredaten auslesen (`client/hardware_collector.py`)
-- Inventarisierung je Snapshot
-- Regelmaessige Datenbereitstellung per Intervall
-- Automatische Registrierung beim Server
-- Eindeutige Identifikation per stabiler Client-UID
-
-### b) Server-Komponente
-
-- Verwaltung verbundener Clients (inkl. online/offline Status)
-- Verarbeitung mehrerer Clients gleichzeitig (HTTP-API)
-- Speicherung in relationaler SQL-Datenbank
-- Intervallbezug durch periodische Agent-Updates + Stale-Status (`STALE_AFTER_SECONDS`)
-
-### c) Auswertung und Visualisierung
-
-- Web-Dashboard (`/`) mit:
-  - Clientliste (aktuelle Werte)
-  - Historie pro Client (Diagramm)
-  - Vergleich mehrerer Clients
-  - Alert-Tabelle
-
-### d) Alarmfunktion (optional)
-
-Implementiert:
-
-- Definierbare Grenzwerte (`/api/alert-rules`)
-- Automatische Regelpruefung bei jedem Snapshot
-- Erzeugung von Alert-Events mit Meldung
-- Standardregel: freier Festplattenspeicher unter 5%
-
-### e) Kommunikation
-
-- Datenaustausch via JSON/HTTP
-- Optional absicherbar durch API-Key (`X-API-Key`)
-- API-Key wird serverseitig fuer alle `/api`-Endpunkte geprueft
+Der Token wird über `POST /api/onboarding-tokens` erzeugt (nur mit Admin-API-Key).
 
 ## UML-Diagramme
 
 - UML-Anwendungsfalldiagramm: `docs/uml/anwendungsfalldiagramm.puml`
-- UML-Aktivitaetsdiagramm: `docs/uml/aktivitaetsdiagramm.puml`
+- UML-Aktivitätsdiagramm: `docs/uml/aktivitaetsdiagramm.puml`
 
-PlantUML-Dateien koennen z. B. mit VS Code PlantUML Plugin oder PlantUML CLI gerendert werden.
+PlantUML-Dateien können z. B. mit VS Code PlantUML Plugin oder PlantUML CLI gerendert werden.
 
-## Installation
+## Installation (lokal ohne Docker)
 
 ```bash
 python -m venv .venv
@@ -115,7 +71,7 @@ cp .env.example .env
 docker compose up -d --build
 ```
 
-3. Pruefen:
+3. Prüfen:
 
 ```bash
 docker compose ps
@@ -130,21 +86,19 @@ Stoppen:
 docker compose down
 ```
 
-Komplett zuruecksetzen (inkl. DB-Daten):
+Komplett zurücksetzen (inkl. DB-Daten):
 
 ```bash
 docker compose down -v
 ```
 
-## Server starten
+## Server manuell starten
 
 ```bash
 export SERVER_API_KEY="change-me"
 export DATABASE_URL="sqlite:///./hardware_monitor.db"
 uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload
 ```
-
-Dashboard: `http://localhost:8000`
 
 ## Client-Agent starten
 
@@ -157,11 +111,11 @@ python -m client.agent
 
 ## Wichtige Umgebungsvariablen
 
-- `SERVER_API_KEY`: API-Key fuer Server/Client-Kommunikation
+- `SERVER_API_KEY`: Admin-API-Key für Server/Client-Kommunikation
 - `DATABASE_URL`: SQL-Verbindung (SQLite oder PostgreSQL)
-- `DB_SSLMODE`: optionaler SSL-Modus fuer PostgreSQL (`require`, `verify-ca`, `verify-full`, ...)
-- `DB_POOL_SIZE`: Groesse des DB-Verbindungspools (Standard `10`)
-- `DB_MAX_OVERFLOW`: zusaetzliche Burst-Verbindungen ausserhalb des Pools (Standard `20`)
+- `DB_SSLMODE`: optionaler SSL-Modus für PostgreSQL (`require`, `verify-ca`, `verify-full`, ...)
+- `DB_POOL_SIZE`: Größe des DB-Verbindungspools (Standard `10`)
+- `DB_MAX_OVERFLOW`: zusätzliche Burst-Verbindungen außerhalb des Pools (Standard `20`)
 - `STALE_AFTER_SECONDS`: ab wann ein Client als offline gilt
 - `AGENT_INTERVAL_SECONDS`: Sendeintervall des Agenten
 - `CLIENT_ID_FILE`: Speicherort der lokalen Client-UID
@@ -179,10 +133,10 @@ uvicorn server.main:app --host 0.0.0.0 --port 8000
 
 Hinweise:
 - `postgres://...` und `postgresql://...` werden automatisch auf das SQLAlchemy-Format normalisiert.
-- Fuer produktive externe DBs sollte TLS/SSL aktiviert sein (`DB_SSLMODE=require`).
+- Für produktive externe DBs sollte TLS/SSL aktiviert sein (`DB_SSLMODE=require`).
 - Tabellen werden beim Server-Start automatisch erstellt (Prototyp-Verhalten).
 
-Auch mit Docker Compose moeglich:
+Auch mit Docker Compose möglich:
 
 ```bash
 cp .env.example .env
@@ -202,11 +156,13 @@ docker compose up -d --build server
 - `GET /api/alert-rules`
 - `POST /api/alert-rules`
 - `PATCH /api/alert-rules/{rule_id}`
+- `POST /api/onboarding-tokens`
 
-## Robustheit/Sicherheit/Skalierbarkeit (Prototyp)
+## Robustheit, Sicherheit, Skalierbarkeit (Prototyp)
 
 - Fehlerbehandlung im Agenten mit Logging + Exponential Backoff
 - API-Key-Schutz gegen unbefugten API-Zugriff
+- Zusätzliche pro-Client API-Tokens für Onboarding
 - Klare Trennung von Client und Server
 - SQL-basierte Persistenz und erweiterbares Datenmodell
-- Mehrere Clients koennen parallel Daten senden
+- Mehrere Clients können parallel Daten senden

@@ -41,15 +41,15 @@ def evaluate_rule(rule: AlertRule, snapshot: HardwareSnapshot) -> RuleEvaluation
         relation = "unter"
     elif rule.comparator == "gt":
         triggered = value > rule.threshold
-        relation = "ueber"
+        relation = "über"
     else:
         triggered = False
-        relation = "ungueltig"
+        relation = "ungültig"
 
     message = None
     if triggered:
         message = (
-            f"Regel '{rule.name}' ausgeloest: {rule.metric}={value:.2f} "
+            f"Regel '{rule.name}' ausgelöst: {rule.metric}={value:.2f} "
             f"liegt {relation} Grenzwert {rule.threshold:.2f}"
         )
 
