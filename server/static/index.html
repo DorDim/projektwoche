@@ -85,6 +85,20 @@
 
       <main class="mx-auto grid w-full max-w-7xl gap-4 px-4 py-4">
       <div id="errorBanner" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+      <div id="alarmBanner" class="hidden rounded-lg border border-rose-300 bg-rose-50 px-4 py-3 text-sm text-rose-800">
+        <div class="flex flex-wrap items-center justify-between gap-3">
+          <div>
+            <div class="font-semibold">Alarm erkannt</div>
+            <div id="alarmBannerText" class="text-xs">Neue Grenzwertüberschreitungen wurden erkannt.</div>
+          </div>
+          <button
+            id="toggleAlarmSoundBtn"
+            class="rounded border border-rose-300 bg-white px-3 py-1 text-xs font-semibold text-rose-700 hover:bg-rose-100"
+          >
+            Ton: Ein
+          </button>
+        </div>
+      </div>
 
       <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 class="mb-3 text-lg font-semibold">Clients</h2>
@@ -111,6 +125,49 @@
       <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 id="detailsTitle" class="mb-3 text-lg font-semibold">Client-Details</h2>
         <div class="grid gap-4">
+          <div class="rounded-lg border border-slate-200 p-3">
+            <h3 class="mb-3 font-semibold">Export</h3>
+            <div class="flex flex-wrap gap-2">
+              <button id="exportJsonBtn" class="rounded bg-slate-700 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">
+                Export JSON
+              </button>
+              <button id="exportCsvBtn" class="rounded bg-slate-700 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">
+                Export CSV
+              </button>
+              <button id="exportPdfBtn" class="rounded bg-slate-700 px-3 py-2 text-xs font-semibold text-white hover:bg-slate-800">
+                Export PDF
+              </button>
+            </div>
+            <p class="mt-2 text-xs text-slate-500">Exportiert den aktuell ausgewählten Client.</p>
+          </div>
+
+          <div class="rounded-lg border border-slate-200 p-3">
+            <h3 class="mb-3 font-semibold">Trends & Durchschnittswerte</h3>
+            <div id="analyticsCards" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-3">
+              <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+                Bitte Client auswählen
+              </div>
+            </div>
+          </div>
+
+          <div class="rounded-lg border border-slate-200 p-3">
+            <h3 class="mb-3 font-semibold">Erkannte Auffälligkeiten</h3>
+            <div class="overflow-x-auto">
+              <table class="min-w-full divide-y divide-slate-200 text-sm">
+                <thead class="bg-slate-50">
+                  <tr>
+                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Zeitpunkt</th>
+                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Typ</th>
+                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Schwere</th>
+                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Wert</th>
+                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Meldung</th>
+                  </tr>
+                </thead>
+                <tbody id="anomaliesBody" class="divide-y divide-slate-100 bg-white"></tbody>
+              </table>
+            </div>
+          </div>
+
           <div class="rounded-lg border border-slate-200 p-3">
             <h3 class="mb-3 font-semibold">Hardware-Übersicht</h3>
             <div id="hardwareSummaryCards" class="grid gap-3 sm:grid-cols-2 xl:grid-cols-4">
@@ -202,6 +259,73 @@
               </tr>
             </thead>
             <tbody class="divide-y divide-slate-100 bg-white"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="alertRulesSection" class="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 class="mb-3 text-lg font-semibold">Alarmregeln (Grenzwerte)</h2>
+        <form id="createAlertRuleForm" class="mb-4 grid gap-3 rounded-lg border border-slate-200 p-3 text-sm md:grid-cols-5">
+          <label class="block">
+            Name
+            <input id="newRuleName" required class="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
+          </label>
+          <label class="block">
+            Metrik
+            <select id="newRuleMetric" class="mt-1 w-full rounded border border-slate-300 px-2 py-1">
+              <option value="disk_free_percent_min">Min. freier Speicher (%)</option>
+              <option value="cpu_temperature_c">CPU-Temperatur (°C)</option>
+              <option value="uptime_seconds">Uptime (Sekunden)</option>
+            </select>
+          </label>
+          <label class="block">
+            Vergleich
+            <select id="newRuleComparator" class="mt-1 w-full rounded border border-slate-300 px-2 py-1">
+              <option value="lt">kleiner als (&lt;)</option>
+              <option value="gt">größer als (&gt;)</option>
+            </select>
+          </label>
+          <label class="block">
+            Grenzwert
+            <input id="newRuleThreshold" type="number" step="0.01" required class="mt-1 w-full rounded border border-slate-300 px-2 py-1" />
+          </label>
+          <div class="flex items-end">
+            <button class="w-full rounded bg-indigo-600 px-3 py-2 text-xs font-semibold text-white hover:bg-indigo-700" type="submit">
+              Regel erstellen
+            </button>
+          </div>
+        </form>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Name</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Metrik</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Vergleich</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Grenzwert</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Aktiv</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Aktionen</th>
+              </tr>
+            </thead>
+            <tbody id="alertRulesBody" class="divide-y divide-slate-100 bg-white"></tbody>
+          </table>
+        </div>
+      </section>
+
+      <section id="eventsSection" class="hidden rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
+        <h2 class="mb-3 text-lg font-semibold">Ereignisprotokoll</h2>
+        <div class="overflow-x-auto">
+          <table class="min-w-full divide-y divide-slate-200 text-sm">
+            <thead class="bg-slate-50">
+              <tr>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Zeitpunkt</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Level</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Typ</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Client</th>
+                <th class="px-3 py-2 text-left font-semibold text-slate-600">Meldung</th>
+              </tr>
+            </thead>
+            <tbody id="eventsBody" class="divide-y divide-slate-100 bg-white"></tbody>
           </table>
         </div>
       </section>

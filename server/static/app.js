@@ -7,6 +7,9 @@ let onboardingTokenValue = "";
 let currentApiKey = "";
 let authContext = null;
 let cachedUsers = [];
+let alertSoundEnabled = true;
+let audioContext = null;
+let latestAlertTimestamp = null;
 const currentPage = document.body?.dataset?.page || "dashboard";
 
 const REPOSITORY_URL = "https://github.com/DorDim/projektwoche.git";
@@ -21,6 +24,11 @@ const PERMISSION_FIELDS = [
 ];
 
 const PASSWORD_POLICY_SPECIAL_CHAR_REGEX = /[^A-Za-z0-9]/;
+const RULE_METRIC_LABELS = {
+  disk_free_percent_min: "Min. freier Speicher (%)",
+  cpu_temperature_c: "CPU-Temperatur (°C)",
+  uptime_seconds: "Uptime (Sekunden)",
+};
 
 function getEl(id) {
   return document.getElementById(id);
@@ -101,6 +109,8 @@ function updateAuthUi() {
   state.textContent = `${username} (${role})`;
   getEl("openOnboardingBtn")?.classList.toggle("hidden", !hasPermission("add_clients"));
   getEl("userManagementSection")?.classList.toggle("hidden", !hasPermission("manage_users"));
+  getEl("alertRulesSection")?.classList.toggle("hidden", !hasPermission("manage_alert_rules"));
+  getEl("eventsSection")?.classList.toggle("hidden", !hasPermission("view_events"));
   getEl("navCompareLink")?.classList.toggle("hidden", !hasPermission("view_dashboard"));
   getEl("navUsersLink")?.classList.toggle("hidden", !hasPermission("manage_users"));
 }
@@ -296,6 +306,55 @@ function showOnboardingStatus(message, isError = false) {
   statusBox.classList.remove("hidden");
 }
 
+function setAlarmBanner(text = "") {
+  const banner = getEl("alarmBanner");
+  const label = getEl("alarmBannerText");
+  if (!banner || !label) return;
+  if (!text) {
+    banner.classList.add("hidden");
+    label.textContent = "";
+    return;
+  }
+  label.textContent = text;
+  banner.classList.remove("hidden");
+}
+
+function updateAlarmSoundButton() {
+  const btn = getEl("toggleAlarmSoundBtn");
+  if (!btn) return;
+  btn.textContent = `Ton: ${alertSoundEnabled ? "Ein" : "Aus"}`;
+}
+
+async function playAlarmSound() {
+  if (!alertSoundEnabled) return;
+  const AudioCtx = window.AudioContext || window.webkitAudioContext;
+  if (!AudioCtx) return;
+  if (!audioContext) {
+    audioContext = new AudioCtx();
+  }
+  if (audioContext.state === "suspended") {
+    await audioContext.resume();
+  }
+  const now = audioContext.currentTime;
+  [0, 0.22].forEach((offset, index) => {
+    const oscillator = audioContext.createOscillator();
+    const gain = audioContext.createGain();
+    oscillator.type = "sine";
+    oscillator.frequency.value = index === 0 ? 880 : 660;
+    gain.gain.setValueAtTime(0.001, now + offset);
+    gain.gain.exponentialRampToValueAtTime(0.25, now + offset + 0.02);
+    gain.gain.exponentialRampToValueAtTime(0.001, now + offset + 0.18);
+    oscillator.connect(gain);
+    gain.connect(audioContext.destination);
+    oscillator.start(now + offset);
+    oscillator.stop(now + offset + 0.2);
+  });
+}
+
+function formatRuleMetric(metric) {
+  return RULE_METRIC_LABELS[metric] || metric;
+}
+
 function renderClients(clients) {
   const tbody = document.querySelector("#clientsTable tbody");
   if (!tbody) return;
@@ -381,10 +440,18 @@ function renderClients(clients) {
 function resetDetailView(message) {
   const detailsTitle = getEl("detailsTitle");
   const summaryCards = getEl("hardwareSummaryCards");
+  const analyticsCards = getEl("analyticsCards");
+  const anomaliesBody = getEl("anomaliesBody");
   const diskDetailsBody = getEl("diskDetailsBody");
   const adapterDetailsBody = getEl("adapterDetailsBody");
   const gpuDetailsBody = getEl("gpuDetailsBody");
-  if (!detailsTitle || !summaryCards || !diskDetailsBody || !adapterDetailsBody || !gpuDetailsBody) {
+  if (
+    !detailsTitle ||
+    !summaryCards ||
+    !diskDetailsBody ||
+    !adapterDetailsBody ||
+    !gpuDetailsBody
+  ) {
     return;
   }
   detailsTitle.textContent = "Client-Details";
@@ -396,6 +463,17 @@ function resetDetailView(message) {
   diskDetailsBody.innerHTML = "";
   adapterDetailsBody.innerHTML = "";
   gpuDetailsBody.innerHTML = "";
+  if (analyticsCards) {
+    analyticsCards.innerHTML = `
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+        ${escapeHtml(message)}
+      </div>
+    `;
+  }
+  if (anomaliesBody) {
+    anomaliesBody.innerHTML =
+      '<tr><td class="px-3 py-2 text-slate-500" colspan="5">Bitte Client auswählen</td></tr>';
+  }
   if (historyChart) historyChart.destroy();
   if (uptimeChart) uptimeChart.destroy();
   if (diskChart) diskChart.destroy();
@@ -605,6 +683,61 @@ function renderHardwareDetails(snapshot) {
   renderGpuDetails(snapshot.gpu_info || []);
 }
 
+function renderAnalytics(analytics) {
+  const container = getEl("analyticsCards");
+  if (!container) return;
+  if (!analytics || analytics.sample_count === 0) {
+    container.innerHTML = `
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+        Keine Analytics-Daten vorhanden.
+      </div>
+    `;
+    return;
+  }
+  const cards = [
+    ["Samples", fmt(analytics.sample_count, 0)],
+    ["Ø CPU-Temperatur (°C)", fmt(analytics.avg_cpu_temperature_c, 2)],
+    ["Ø Min. freier Speicher (%)", fmt(analytics.avg_disk_free_percent_min, 2)],
+    ["Ø Uptime (s)", fmt(analytics.avg_uptime_seconds, 1)],
+    ["Trend CPU-Temp / h", fmt(analytics.trend_cpu_temperature_c_per_hour, 4)],
+    ["Trend freier Speicher / h", fmt(analytics.trend_disk_free_percent_min_per_hour, 4)],
+    ["Trend Uptime / h", fmt(analytics.trend_uptime_seconds_per_hour, 4)],
+  ];
+  container.innerHTML = cards
+    .map(
+      ([label, value]) => `
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+        <div class="text-xs uppercase tracking-wide text-slate-500">${escapeHtml(label)}</div>
+        <div class="mt-1 text-sm font-semibold text-slate-800">${escapeHtml(value)}</div>
+      </div>`
+    )
+    .join("");
+}
+
+function renderAnomalies(anomalies) {
+  const body = getEl("anomaliesBody");
+  if (!body) return;
+  if (!anomalies || anomalies.length === 0) {
+    body.innerHTML =
+      '<tr><td class="px-3 py-2 text-slate-500" colspan="5">Keine Auffälligkeiten erkannt</td></tr>';
+    return;
+  }
+  body.innerHTML = anomalies
+    .map((entry) => {
+      const severityClass =
+        entry.severity === "high" ? "text-red-700" : entry.severity === "medium" ? "text-amber-700" : "text-slate-700";
+      return `
+      <tr>
+        <td class="px-3 py-2">${new Date(entry.collected_at).toLocaleString()}</td>
+        <td class="px-3 py-2">${escapeHtml(entry.type)}</td>
+        <td class="px-3 py-2 font-semibold ${severityClass}">${escapeHtml(entry.severity)}</td>
+        <td class="px-3 py-2">${fmt(entry.value, 2)}</td>
+        <td class="px-3 py-2">${escapeHtml(entry.message)}</td>
+      </tr>`;
+    })
+    .join("");
+}
+
 function renderCompareVisuals(rows) {
   const cards = getEl("compareSummaryCards");
   const chartCanvas = getEl("compareChart");
@@ -688,7 +821,11 @@ function renderCompareVisuals(rows) {
 
 async function loadClientDetails(clientUid) {
   if (!getEl("detailsTitle")) return;
-  const snapshots = await apiGet(`/api/clients/${clientUid}/snapshots?limit=100`);
+  const [snapshots, analytics, anomalies] = await Promise.all([
+    apiGet(`/api/clients/${clientUid}/snapshots?limit=100`),
+    apiGet(`/api/clients/${clientUid}/analytics?limit=200`),
+    apiGet(`/api/clients/${clientUid}/anomalies?limit=200`),
+  ]);
   if (!snapshots || snapshots.length === 0) {
     resetDetailView("Für diesen Client sind noch keine Snapshots vorhanden.");
     return;
@@ -696,6 +833,8 @@ async function loadClientDetails(clientUid) {
   const latest = snapshots[0];
   getEl("detailsTitle").textContent = `Client-Details: ${latest.hostname} (${clientUid})`;
   renderHardwareDetails(latest);
+  renderAnalytics(analytics);
+  renderAnomalies(anomalies);
   renderResourceHistory(snapshots);
   renderUptimeHistory(snapshots);
   renderDiskUsageChart(latest);
@@ -742,8 +881,15 @@ async function loadAlerts() {
   const tbody = document.querySelector("#alertsTable tbody");
   if (!tbody) return;
   const alerts = await apiGet("/api/alerts?limit=100");
+  let newAlertCount = 0;
+  const lastKnown = latestAlertTimestamp ? new Date(latestAlertTimestamp).getTime() : null;
+  const isFirstLoad = lastKnown === null;
   tbody.innerHTML = "";
   alerts.forEach((alert) => {
+    const triggeredAtMs = new Date(alert.triggered_at).getTime();
+    if (!isFirstLoad && triggeredAtMs > lastKnown) {
+      newAlertCount += 1;
+    }
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td class="px-3 py-2">${new Date(alert.triggered_at).toLocaleString()}</td>
@@ -754,6 +900,183 @@ async function loadAlerts() {
     `;
     tbody.appendChild(tr);
   });
+  latestAlertTimestamp = alerts.length > 0 ? alerts[0].triggered_at : latestAlertTimestamp;
+  if (newAlertCount > 0) {
+    setAlarmBanner(`${newAlertCount} neue Alarm(e) erkannt. Prüfe Alerts und Grenzwerte.`);
+    await playAlarmSound();
+  } else {
+    setAlarmBanner("");
+  }
+}
+
+function renderAlertRules(rules) {
+  const body = getEl("alertRulesBody");
+  if (!body) return;
+  if (!rules || rules.length === 0) {
+    body.innerHTML = '<tr><td class="px-3 py-2 text-slate-500" colspan="6">Keine Regeln vorhanden</td></tr>';
+    return;
+  }
+  body.innerHTML = rules
+    .map(
+      (rule) => `
+      <tr>
+        <td class="px-3 py-2">${escapeHtml(rule.name)}</td>
+        <td class="px-3 py-2">${escapeHtml(formatRuleMetric(rule.metric))}</td>
+        <td class="px-3 py-2">${escapeHtml(rule.comparator)}</td>
+        <td class="px-3 py-2">
+          <input
+            type="number"
+            step="0.01"
+            value="${Number(rule.threshold)}"
+            data-rule-threshold="${rule.id}"
+            class="w-28 rounded border border-slate-300 px-2 py-1"
+          />
+        </td>
+        <td class="px-3 py-2">
+          <input type="checkbox" data-rule-enabled="${rule.id}" ${rule.enabled ? "checked" : ""} />
+        </td>
+        <td class="px-3 py-2">
+          <button
+            data-rule-save="${rule.id}"
+            class="rounded border border-indigo-300 px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50"
+          >
+            Speichern
+          </button>
+        </td>
+      </tr>`
+    )
+    .join("");
+
+  document.querySelectorAll("[data-rule-save]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const ruleId = button.dataset.ruleSave;
+      if (!ruleId) return;
+      const thresholdInput = document.querySelector(`[data-rule-threshold="${ruleId}"]`);
+      const enabledInput = document.querySelector(`[data-rule-enabled="${ruleId}"]`);
+      const thresholdValue = thresholdInput ? Number(thresholdInput.value) : NaN;
+      if (!Number.isFinite(thresholdValue)) {
+        showError("Bitte gültigen Grenzwert eingeben.");
+        return;
+      }
+      try {
+        const query = new URLSearchParams({
+          threshold: String(thresholdValue),
+          enabled: enabledInput && enabledInput.checked ? "true" : "false",
+        });
+        await apiPatch(`/api/alert-rules/${ruleId}?${query.toString()}`, {});
+        await loadAlertRules();
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+  });
+}
+
+async function loadAlertRules() {
+  const body = getEl("alertRulesBody");
+  if (!body) return;
+  if (!hasPermission("manage_alert_rules")) {
+    body.innerHTML =
+      '<tr><td class="px-3 py-2 text-slate-500" colspan="6">Keine Berechtigung für Alarmregeln</td></tr>';
+    return;
+  }
+  const rules = await apiGet("/api/alert-rules");
+  renderAlertRules(rules);
+}
+
+async function createAlertRuleFromForm(event) {
+  event.preventDefault();
+  if (!hasPermission("manage_alert_rules")) {
+    showError("Keine Berechtigung für Alarmregeln.");
+    return;
+  }
+  const name = getEl("newRuleName")?.value?.trim() || "";
+  const metric = getEl("newRuleMetric")?.value || "disk_free_percent_min";
+  const comparator = getEl("newRuleComparator")?.value || "lt";
+  const threshold = Number(getEl("newRuleThreshold")?.value);
+  if (!name || !Number.isFinite(threshold)) {
+    showError("Bitte Name und gültigen Grenzwert eingeben.");
+    return;
+  }
+  try {
+    await apiPost("/api/alert-rules", {
+      name,
+      metric,
+      comparator,
+      threshold,
+      enabled: true,
+    });
+    if (getEl("newRuleName")) getEl("newRuleName").value = "";
+    if (getEl("newRuleThreshold")) getEl("newRuleThreshold").value = "";
+    await loadAlertRules();
+    showError("");
+  } catch (error) {
+    showError(error.message);
+  }
+}
+
+function renderEvents(events) {
+  const body = getEl("eventsBody");
+  if (!body) return;
+  if (!events || events.length === 0) {
+    body.innerHTML = '<tr><td class="px-3 py-2 text-slate-500" colspan="5">Keine Events vorhanden</td></tr>';
+    return;
+  }
+  body.innerHTML = events
+    .map(
+      (entry) => `
+      <tr>
+        <td class="px-3 py-2">${new Date(entry.created_at).toLocaleString()}</td>
+        <td class="px-3 py-2">${escapeHtml(entry.level)}</td>
+        <td class="px-3 py-2">${escapeHtml(entry.event_type)}</td>
+        <td class="px-3 py-2">${escapeHtml(entry.client_uid || "-")}</td>
+        <td class="px-3 py-2">${escapeHtml(entry.message)}</td>
+      </tr>`
+    )
+    .join("");
+}
+
+async function loadEvents() {
+  const body = getEl("eventsBody");
+  if (!body) return;
+  if (!hasPermission("view_events")) {
+    body.innerHTML =
+      '<tr><td class="px-3 py-2 text-slate-500" colspan="5">Keine Berechtigung für Event-Logs</td></tr>';
+    return;
+  }
+  const events = await apiGet("/api/events?limit=200");
+  renderEvents(events);
+}
+
+function inferDownloadFilename(format, headersMap) {
+  const contentDisposition = headersMap.get("content-disposition") || "";
+  const match = /filename=\"?([^\";]+)\"?/i.exec(contentDisposition);
+  if (match) {
+    return match[1];
+  }
+  return `client-export.${format}`;
+}
+
+async function exportSelectedClient(format) {
+  if (!selectedClientUid) {
+    showError("Bitte zuerst einen Client auswählen.");
+    return;
+  }
+  const response = await fetch(`/api/clients/${encodeURIComponent(selectedClientUid)}/export?format=${format}`, {
+    headers: headers(),
+  });
+  if (!response.ok) {
+    throw new Error(`Export fehlgeschlagen (${response.status})`);
+  }
+  const blob = await response.blob();
+  const downloadUrl = URL.createObjectURL(blob);
+  const link = document.createElement("a");
+  link.href = downloadUrl;
+  link.download = inferDownloadFilename(format, response.headers);
+  document.body.appendChild(link);
+  link.click();
+  document.body.removeChild(link);
+  URL.revokeObjectURL(downloadUrl);
 }
 
 function permissionSummaryText(user) {
@@ -1055,6 +1378,8 @@ async function refreshAll() {
   const hasCompareTable = Boolean(document.querySelector("#compareTable tbody"));
   const hasDetails = Boolean(getEl("detailsTitle"));
   const hasAlerts = Boolean(document.querySelector("#alertsTable tbody"));
+  const hasAlertRules = Boolean(getEl("alertRulesBody"));
+  const hasEvents = Boolean(getEl("eventsBody"));
   const hasUsersTable = Boolean(document.querySelector("#usersTable tbody"));
   const needsClientData = hasClientsTable || hasCompareTable || hasDetails || hasAlerts;
 
@@ -1071,6 +1396,14 @@ async function refreshAll() {
 
   if (hasAlerts) {
     await loadAlerts();
+  }
+
+  if (hasAlertRules) {
+    await loadAlertRules();
+  }
+
+  if (hasEvents) {
+    await loadEvents();
   }
 
   if (hasPermission("manage_users")) {
@@ -1090,6 +1423,10 @@ async function refreshAll() {
     }
   } else {
     selectedClientUid = null;
+  }
+
+  if (hasCompareTable) {
+    await loadCompare();
   }
 }
 
@@ -1116,10 +1453,12 @@ async function forceLogout(message = "") {
   setCurrentApiKey("", false);
   authContext = null;
   cachedUsers = [];
+  latestAlertTimestamp = null;
   persistApiKey();
   showLoginScreen();
   updateAuthUi();
   resetDetailView("Bitte anmelden, um Daten zu laden.");
+  setAlarmBanner("");
   showError("");
   if (message) {
     showLoginError(message);
@@ -1183,6 +1522,33 @@ bindEvent("openOnboardingBtn", "click", async () => {
   }
 });
 
+bindEvent("createAlertRuleForm", "submit", createAlertRuleFromForm);
+bindEvent("exportJsonBtn", "click", async () => {
+  try {
+    await exportSelectedClient("json");
+  } catch (error) {
+    showError(error.message);
+  }
+});
+bindEvent("exportCsvBtn", "click", async () => {
+  try {
+    await exportSelectedClient("csv");
+  } catch (error) {
+    showError(error.message);
+  }
+});
+bindEvent("exportPdfBtn", "click", async () => {
+  try {
+    await exportSelectedClient("pdf");
+  } catch (error) {
+    showError(error.message);
+  }
+});
+bindEvent("toggleAlarmSoundBtn", "click", () => {
+  alertSoundEnabled = !alertSoundEnabled;
+  updateAlarmSoundButton();
+});
+
 bindEvent("createUserForm", "submit", createUserFromForm);
 bindEvent("editUserForm", "submit", updateUserFromForm);
 bindEvent("loginForm", "submit", handleLoginSubmit);
@@ -1236,6 +1602,7 @@ applyPermissions("perm", {
 });
 applyRoleToPermissionForm("perm", "user");
 markActiveNavigation();
+updateAlarmSoundButton();
 
 loadSavedApiKey();
 if (currentApiKey) {
