@@ -14,6 +14,7 @@ Das System erfasst Hardware- und Betriebsdaten von Clients zentral, speichert si
   - sammelt Hardwaredaten
   - registriert sich am Server
   - sendet Snapshots zyklisch
+  - nutzt für CPU-Temperatur/Lüfterdrehzahl mehrere Fallbacks (psutil, OS-Sensorquellen, systemnahe Abfragen)
 - **API/Backend (FastAPI + SQLAlchemy)**
   - Authentifizierung + Rollen/Rechte
   - Speicherung und Auswertung
