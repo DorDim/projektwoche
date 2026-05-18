@@ -2,32 +2,50 @@
 left to right direction
 skinparam packageStyle rectangle
 
-actor "Administrator" as Admin
+actor "Admin" as Admin
+actor "Benutzer" as User
 actor "Client-Agent" as Agent
 
-rectangle "Server-System" {
-  usecase "Client registrieren" as UC1
-  usecase "Hardwaredaten empfangen" as UC2
-  usecase "Hardwaredaten speichern\n(SQL-Datenbank)" as UC3
-  usecase "Historie pro Client anzeigen" as UC4
-  usecase "Mehrere Clients vergleichen" as UC5
-  usecase "Grenzwerte prüfen" as UC6
-  usecase "Alarm ausgeben" as UC7
-  usecase "Client-Status verwalten\n(online/offline)" as UC8
+rectangle "Hardwareüberwachungssystem" {
+  usecase "Anmelden" as UC_Login
+  usecase "Dashboard ansehen" as UC_Dashboard
+  usecase "Clients vergleichen" as UC_Compare
+  usecase "Client-Details & Historie anzeigen" as UC_Details
+  usecase "Onboarding-Token erzeugen" as UC_Onboard
+  usecase "Client löschen" as UC_DeleteClient
+  usecase "Alert-Regeln verwalten" as UC_Alerts
+  usecase "Events einsehen" as UC_Events
+  usecase "Benutzer verwalten\n(anlegen/bearbeiten/löschen)" as UC_Users
+  usecase "Export erzeugen\n(JSON/CSV/PDF)" as UC_Export
+
+  usecase "Client registrieren" as UC_Register
+  usecase "Snapshot senden" as UC_Snapshot
+  usecase "Daten speichern" as UC_Store
+  usecase "Anomalien/Trends berechnen" as UC_Analyze
+  usecase "Grenzwerte prüfen\nund Alarm auslösen" as UC_CheckAlert
 }
 
-Agent --> UC1
-Agent --> UC2
-UC2 --> UC3
-UC2 --> UC6
-UC6 --> UC7
-UC3 --> UC4
-UC3 --> UC5
-UC1 --> UC8
-UC2 --> UC8
+Admin --> UC_Login
+Admin --> UC_Dashboard
+Admin --> UC_Compare
+Admin --> UC_Details
+Admin --> UC_Onboard
+Admin --> UC_DeleteClient
+Admin --> UC_Alerts
+Admin --> UC_Events
+Admin --> UC_Users
+Admin --> UC_Export
 
-Admin --> UC4
-Admin --> UC5
-Admin --> UC7
-Admin --> UC6
+User --> UC_Login
+User --> UC_Dashboard
+User --> UC_Compare
+User --> UC_Details
+User --> UC_Export
+
+Agent --> UC_Register
+Agent --> UC_Snapshot
+UC_Snapshot --> UC_Store
+UC_Store --> UC_Analyze
+UC_Store --> UC_CheckAlert
+
 @enduml

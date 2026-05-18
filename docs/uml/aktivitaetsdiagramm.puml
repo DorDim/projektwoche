@@ -1,28 +1,65 @@
 @startuml
 start
-:Agent startet;
-:Client-ID laden/erzeugen;
-:Beim Server registrieren;
+:Traefik empfängt HTTPS-Anfrage;
+:Anfrage an FastAPI weiterleiten;
 
-repeat
-  :Hardwaredaten auslesen;
-  :Snapshot an Server senden;
-
-  if (Server erreichbar?) then (ja)
-    :Daten validieren;
-    :In SQL-Datenbank speichern;
-    :Grenzwerte prüfen;
-    if (Grenzwert verletzt?) then (ja)
-      :Alarm erzeugen;
-    else (nein)
-      :Kein Alarm;
-    endif
-    :Dashboard aktualisieren;
+if (Login vorhanden?) then (nein)
+  :Login-Screen anzeigen;
+  :Benutzername + Passwort prüfen;
+  if (gültig?) then (ja)
+    :Session-Token erzeugen;
   else (nein)
-    :Fehler loggen;
-    :Exponential Backoff;
+    :Fehler anzeigen;
+    stop
   endif
+endif
 
-repeat while (Agent aktiv?)
+:Rolle + Berechtigungen laden;
+
+if (Seite = Nutzerverwaltung?) then (ja)
+  if (manage_users erlaubt?) then (ja)
+    :Benutzerliste laden;
+    :Benutzer anlegen/bearbeiten/löschen;
+  else (nein)
+    :403 / Hinweis \"keine Berechtigung\";
+  endif
+elseif (Seite = Vergleich?) then (ja)
+  if (view_dashboard erlaubt?) then (ja)
+    :Clients laden;
+    :Vergleichsdaten + Diagramme anzeigen;
+  else (nein)
+    :403 / Hinweis \"keine Berechtigung\";
+  endif
+else (Dashboard)
+  if (view_dashboard erlaubt?) then (ja)
+    :Clients + Alerts + Historie laden;
+  else (nein)
+    :403 / Hinweis \"keine Berechtigung\";
+  endif
+endif
+
+fork
+  repeat
+    :Client-Agent startet;
+    :Client-ID laden/erzeugen;
+    :Client registrieren;
+    :Hardwaredaten sammeln;
+    :Snapshot senden;
+    if (Server erreichbar?) then (ja)
+      :Snapshot speichern;
+      :Trends/Anomalien berechnen;
+      :Grenzwerte prüfen;
+      if (Grenzwert verletzt?) then (ja)
+        :Alert erzeugen + Event loggen;
+      endif
+    else (nein)
+      :Fehler loggen + Backoff;
+    endif
+  repeat while (Agent aktiv?)
+fork again
+  :Admin erzeugt optional Onboarding-Token;
+  :Neuer Client wird per Install-Skript angebunden;
+end fork
+
 stop
 @enduml
