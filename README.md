@@ -88,6 +88,8 @@ Wichtig:
 docker compose up -d --build
 ```
 
+Hinweis: Traefik ist in der Compose-Datei auf Version `v3.7.1` gesetzt.
+
 4. Prüfen:
 
 ```bash
@@ -163,6 +165,8 @@ Unregister-ScheduledTask -TaskName "HardwareMonitorClientAgent" -Confirm:$false
 ```bash
 bash -lc 'git clone https://github.com/DorDim/projektwoche.git && cd projektwoche && bash ./client/install_linux_background.sh --server-url "http://DEIN-SERVER:8000" --api-key "DEIN_TOKEN_ODER_SERVER_API_KEY" --interval-seconds 60'
 ```
+
+Hinweis: Falls `python3 -m venv` wegen fehlendem `ensurepip` fehlschlägt, versucht das Skript automatisch `python3-venv` (oder ein passendes Paket) zu installieren.
 
 Status prüfen:
 
