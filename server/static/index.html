@@ -147,6 +147,15 @@
 
       <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
         <h2 class="mb-3 text-lg font-semibold">Vergleich (ausgewählte Clients)</h2>
+        <div id="compareSummaryCards" class="mb-4 grid gap-3 md:grid-cols-3">
+          <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+            Wähle Clients über die Checkboxen, um den Vergleich zu sehen.
+          </div>
+        </div>
+        <div class="mb-4 rounded-lg border border-slate-200 p-3">
+          <h3 class="mb-2 font-semibold">Visueller Vergleich: RAM & freier Speicher</h3>
+          <canvas id="compareChart"></canvas>
+        </div>
         <div class="overflow-x-auto">
           <table id="compareTable" class="min-w-full divide-y divide-slate-200 text-sm">
             <thead class="bg-slate-50">
@@ -197,8 +206,30 @@
           <button id="closeApiKeyModalBtn" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">✕</button>
         </div>
         <div class="space-y-3 px-5 py-4">
+          <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+            <label class="block text-sm font-medium text-slate-700">
+              Admin-Passwort (aus START_ADMIN_PASSWORD)
+              <input
+                id="adminPasswordInput"
+                type="password"
+                placeholder="Admin-Passwort eingeben"
+                class="mt-1 block w-full rounded-lg border border-emerald-300 bg-white px-3 py-2 text-sm shadow-sm focus:border-emerald-500 focus:outline-none focus:ring-2 focus:ring-emerald-200"
+              />
+            </label>
+            <div class="mt-2 flex justify-end">
+              <button
+                id="loginWithPasswordBtn"
+                class="rounded-lg bg-emerald-600 px-4 py-2 text-sm font-medium text-white hover:bg-emerald-700"
+              >
+                Mit Passwort anmelden
+              </button>
+            </div>
+          </div>
+
+          <div class="text-center text-xs font-semibold uppercase tracking-wide text-slate-400">oder</div>
+
           <label class="block text-sm font-medium text-slate-700">
-            API-Key
+            API-Key direkt setzen
             <input
               id="apiKeyModalInput"
               type="password"
@@ -218,7 +249,7 @@
               id="saveApiKeyBtn"
               class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700"
             >
-              Speichern
+              API-Key speichern
             </button>
           </div>
         </div>

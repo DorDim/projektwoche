@@ -98,6 +98,7 @@ docker compose down -v
 
 ```bash
 export SERVER_API_KEY="change-me"
+export START_ADMIN_PASSWORD="changeme-admin-password"
 export DATABASE_URL="sqlite:///./hardware_monitor.db"
 uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload
 ```
@@ -159,6 +160,7 @@ systemctl --user disable --now hardware-monitor-client-agent.service
 ## Wichtige Umgebungsvariablen
 
 - `SERVER_API_KEY`: Admin-API-Key für Server/Client-Kommunikation
+- `START_ADMIN_PASSWORD`: Start-Admin-Passwort für Web-Login (Modal), erzeugt bei Login ein Admin-Session-Token
 - `DATABASE_URL`: SQL-Verbindung (SQLite oder PostgreSQL)
 - `DB_SSLMODE`: optionaler SSL-Modus für PostgreSQL (`require`, `verify-ca`, `verify-full`, ...)
 - `DB_POOL_SIZE`: Größe des DB-Verbindungspools (Standard `10`)
@@ -194,16 +196,47 @@ docker compose up -d --build server
 
 ## Beispiel-Endpunkte
 
+- `POST /api/auth/login` (Login via `START_ADMIN_PASSWORD`)
+- `GET /api/me` (Rolle: admin/user)
 - `POST /api/clients/register`
 - `POST /api/clients/{client_uid}/snapshots`
 - `GET /api/clients`
 - `GET /api/clients/{client_uid}/snapshots`
+- `GET /api/clients/{client_uid}/analytics`
+- `GET /api/clients/{client_uid}/anomalies`
+- `GET /api/clients/{client_uid}/export?format=json|csv|pdf`
 - `GET /api/compare?client_uids=A&client_uids=B`
 - `GET /api/alerts`
+- `GET /api/events` (Admin)
 - `GET /api/alert-rules`
-- `POST /api/alert-rules`
-- `PATCH /api/alert-rules/{rule_id}`
+- `POST /api/alert-rules` (Admin)
+- `PATCH /api/alert-rules/{rule_id}` (Admin)
 - `POST /api/onboarding-tokens`
+
+## Optionale Erweiterungen (umgesetzt)
+
+- Rollenmodell:
+  - **admin** über `SERVER_API_KEY`
+  - **admin** auch über Login mit `START_ADMIN_PASSWORD` (liefert Admin-Session-Token)
+  - **user** über generierte Client-Tokens
+- Export:
+  - JSON, CSV und PDF je Client (`/api/clients/{uid}/export`)
+- Trends und Durchschnittswerte:
+  - Analytics-Endpunkt mit Mittelwerten und Trend pro Stunde
+- Erkennung von Auffälligkeiten:
+  - niedriger freier Speicher
+  - hohe CPU-Temperatur
+  - Uptime-Reset (möglicher Neustart)
+- Protokollierung:
+  - Ereignisprotokoll in SQL-Tabelle `event_logs` (Registrierung, Snapshots, Alerts, Auth-Fehler, Token-/Regel-Änderungen)
+
+## Begründete Ergänzungen zu unvollständigen Angaben
+
+- Sensorwerte (Temperatur/Lüfter) und Herstellerinfos können je nach Hardware/Firmware fehlen oder Platzhalter liefern.
+- Für Windows werden deshalb mehrere Datenquellen kombiniert:
+  - WMIC
+  - PowerShell/CIM (`Get-CimInstance`)
+- Netzwerkadressen werden über PowerShell-CIM und psutil-Fallback ermittelt, um IPv4/IPv6/MAC robuster zu erfassen.
 
 ## Robustheit, Sicherheit, Skalierbarkeit (Prototyp)
 

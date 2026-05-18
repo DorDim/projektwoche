@@ -2,6 +2,7 @@ let selectedClientUid = null;
 let historyChart = null;
 let uptimeChart = null;
 let diskChart = null;
+let compareChart = null;
 let onboardingTokenValue = "";
 let currentApiKey = "";
 
@@ -10,6 +11,11 @@ const API_KEY_STORAGE_KEY = "hardware-monitor-api-key";
 
 function headers() {
   return { "X-API-Key": currentApiKey };
+}
+
+function setCurrentApiKey(newKey) {
+  currentApiKey = (newKey || "").trim();
+  persistApiKey();
 }
 
 function setApiKeyState() {
@@ -34,11 +40,13 @@ function showApiKeyHint(message = "") {
 function openApiKeyModal(message = "") {
   const modal = document.getElementById("apiKeyModal");
   const input = document.getElementById("apiKeyModalInput");
+  const passwordInput = document.getElementById("adminPasswordInput");
   input.value = currentApiKey;
+  passwordInput.value = "";
   showApiKeyHint(message);
   modal.classList.remove("hidden");
   modal.classList.add("flex");
-  setTimeout(() => input.focus(), 0);
+  setTimeout(() => passwordInput.focus(), 0);
 }
 
 function closeApiKeyModal() {
@@ -128,6 +136,18 @@ async function apiPost(path, payload) {
     if (response.status === 401) {
       openApiKeyModal("API-Key ungültig oder abgelaufen. Bitte neu eingeben.");
     }
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+  return response.json();
+}
+
+async function apiPostPublic(path, payload) {
+  const response = await fetch(path, {
+    method: "POST",
+    headers: { "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
     throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   }
   return response.json();
@@ -404,6 +424,85 @@ function renderHardwareDetails(snapshot) {
   renderGpuDetails(snapshot.gpu_info || []);
 }
 
+function renderCompareVisuals(rows) {
+  const cards = document.getElementById("compareSummaryCards");
+  if (!rows || rows.length === 0) {
+    cards.innerHTML = `
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+        Wähle Clients über die Checkboxen, um den Vergleich zu sehen.
+      </div>
+    `;
+    if (compareChart) {
+      compareChart.destroy();
+      compareChart = null;
+    }
+    return;
+  }
+
+  const topRam = [...rows]
+    .filter((row) => row.ram_total_mb !== null && row.ram_total_mb !== undefined)
+    .sort((a, b) => (b.ram_total_mb || 0) - (a.ram_total_mb || 0))[0];
+  const bestDisk = [...rows]
+    .filter((row) => row.min_disk_free_percent !== null && row.min_disk_free_percent !== undefined)
+    .sort((a, b) => (b.min_disk_free_percent || 0) - (a.min_disk_free_percent || 0))[0];
+  const avgThreads =
+    rows.length > 0
+      ? rows
+          .map((row) => row.cpu_threads || 0)
+          .reduce((total, value) => total + value, 0) / rows.length
+      : null;
+
+  cards.innerHTML = `
+    <div class="rounded-lg border border-blue-200 bg-blue-50 p-3">
+      <div class="text-xs uppercase tracking-wide text-blue-600">Höchster RAM</div>
+      <div class="mt-1 text-sm font-semibold text-blue-900">${escapeHtml(
+        topRam ? `${topRam.hostname} (${fmt(topRam.ram_total_mb, 0)} MB)` : "-"
+      )}</div>
+    </div>
+    <div class="rounded-lg border border-emerald-200 bg-emerald-50 p-3">
+      <div class="text-xs uppercase tracking-wide text-emerald-600">Bester freier Speicher</div>
+      <div class="mt-1 text-sm font-semibold text-emerald-900">${escapeHtml(
+        bestDisk ? `${bestDisk.hostname} (${fmt(bestDisk.min_disk_free_percent, 2)}%)` : "-"
+      )}</div>
+    </div>
+    <div class="rounded-lg border border-violet-200 bg-violet-50 p-3">
+      <div class="text-xs uppercase tracking-wide text-violet-600">Ø CPU Threads</div>
+      <div class="mt-1 text-sm font-semibold text-violet-900">${fmt(avgThreads, 1)}</div>
+    </div>
+  `;
+
+  if (compareChart) {
+    compareChart.destroy();
+  }
+  compareChart = new Chart(document.getElementById("compareChart"), {
+    type: "bar",
+    data: {
+      labels: rows.map((row) => row.hostname),
+      datasets: [
+        {
+          label: "RAM (MB)",
+          data: rows.map((row) => row.ram_total_mb),
+          backgroundColor: "#2563eb",
+          yAxisID: "y",
+        },
+        {
+          label: "Freier Speicher min (%)",
+          data: rows.map((row) => row.min_disk_free_percent),
+          backgroundColor: "#16a34a",
+          yAxisID: "y1",
+        },
+      ],
+    },
+    options: {
+      responsive: true,
+      scales: {
+        y: { position: "left", beginAtZero: true },
+        y1: { position: "right", beginAtZero: true, max: 100 },
+      },
+    },
+  });
+}
+
 async function loadClientDetails(clientUid) {
   const snapshots = await apiGet(`/api/clients/${clientUid}/snapshots?limit=100`);
   if (!snapshots || snapshots.length === 0) {
@@ -423,18 +522,31 @@ async function loadCompare() {
   const tbody = document.querySelector("#compareTable tbody");
   tbody.innerHTML = "";
   if (checked.length === 0) {
+    renderCompareVisuals([]);
     return;
   }
   const query = checked.map((uid) => `client_uids=${encodeURIComponent(uid)}`).join("&");
   const rows = await apiGet(`/api/compare?${query}`);
+  renderCompareVisuals(rows);
   rows.forEach((row) => {
     const tr = document.createElement("tr");
+    const diskPercent = row.min_disk_free_percent ?? 0;
     tr.innerHTML = `
       <td class="px-3 py-2">${escapeHtml(row.hostname)}</td>
       <td class="px-3 py-2 font-mono text-xs">${escapeHtml(row.client_uid)}</td>
       <td class="px-3 py-2">${fmt(row.cpu_threads, 0)}</td>
       <td class="px-3 py-2">${fmt(row.ram_total_mb, 0)}</td>
-      <td class="px-3 py-2">${fmt(row.min_disk_free_percent, 2)}</td>
+      <td class="px-3 py-2">
+        <div class="flex items-center gap-2">
+          <div class="h-2 w-24 overflow-hidden rounded bg-slate-200">
+            <div class="h-full ${diskPercent < 10 ? "bg-red-500" : "bg-emerald-500"}" style="width:${Math.max(
+      0,
+      Math.min(100, diskPercent)
+    )}%"></div>
+          </div>
+          <span>${fmt(row.min_disk_free_percent, 2)}%</span>
+        </div>
+      </td>
       <td class="px-3 py-2">${fmt(row.uptime_seconds, 0)}</td>
     `;
     tbody.appendChild(tr);
@@ -549,8 +661,24 @@ async function saveApiKeyFromModal() {
     showApiKeyHint("Bitte einen API-Key eingeben.");
     return;
   }
-  currentApiKey = newKey;
-  persistApiKey();
+  setCurrentApiKey(newKey);
+  closeApiKeyModal();
+  showError("");
+  await refreshAll();
+}
+
+async function loginWithAdminPassword() {
+  const passwordInput = document.getElementById("adminPasswordInput");
+  const password = passwordInput.value;
+  if (!password) {
+    showApiKeyHint("Bitte ein Admin-Passwort eingeben.");
+    return;
+  }
+  const result = await apiPostPublic("/api/auth/login", { password });
+  if (!result.token) {
+    throw new Error("Login erfolgreich, aber kein Token zurückgegeben.");
+  }
+  setCurrentApiKey(result.token);
   closeApiKeyModal();
   showError("");
   await refreshAll();
@@ -614,6 +742,13 @@ document.getElementById("saveApiKeyBtn").addEventListener("click", async () => {
     showError(error.message);
   }
 });
+document.getElementById("loginWithPasswordBtn").addEventListener("click", async () => {
+  try {
+    await loginWithAdminPassword();
+  } catch (error) {
+    showApiKeyHint(`Login fehlgeschlagen: ${error.message}`);
+  }
+});
 document.getElementById("apiKeyModalInput").addEventListener("keydown", async (event) => {
   if (event.key === "Enter") {
     event.preventDefault();
@@ -621,6 +756,16 @@ document.getElementById("apiKeyModalInput").addEventListener("keydown", async (e
       await saveApiKeyFromModal();
     } catch (error) {
       showError(error.message);
+    }
+  }
+});
+document.getElementById("adminPasswordInput").addEventListener("keydown", async (event) => {
+  if (event.key === "Enter") {
+    event.preventDefault();
+    try {
+      await loginWithAdminPassword();
+    } catch (error) {
+      showApiKeyHint(`Login fehlgeschlagen: ${error.message}`);
     }
   }
 });
