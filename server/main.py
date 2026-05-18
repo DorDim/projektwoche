@@ -51,6 +51,7 @@ from server.schemas import (
     UserCreateIn,
     UserOut,
     UserUpdateIn,
+    validate_password_strength,
 )
 
 app = FastAPI(title="Hardwareüberwachung", version="0.1.0")
@@ -475,6 +476,13 @@ def startup():
                 )
             )
         if settings.start_admin_password:
+            try:
+                validate_password_strength(settings.start_admin_password)
+            except ValueError as exc:
+                raise RuntimeError(
+                    "START_ADMIN_PASSWORD erfüllt die Passwortregeln nicht "
+                    "(mindestens 8 Zeichen und ein Sonderzeichen erforderlich)"
+                ) from exc
             admin_user = db.scalar(select(AppUser).where(AppUser.username == settings.start_admin_username))
             if admin_user is None:
                 admin_user = AppUser(
@@ -1067,7 +1075,11 @@ def list_users(db: Session = Depends(get_db)):
 
 
 @api.post("/users", response_model=UserOut, dependencies=[Depends(require_permission("manage_users"))])
-def create_user(payload: UserCreateIn, db: Session = Depends(get_db)):
+def create_user(
+    payload: UserCreateIn,
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
+    db: Session = Depends(get_db),
+):
     normalized_username = payload.username.strip()
     if not normalized_username:
         raise HTTPException(status_code=422, detail="Benutzername darf nicht leer sein")
@@ -1075,6 +1087,9 @@ def create_user(payload: UserCreateIn, db: Session = Depends(get_db)):
     if existing:
         raise HTTPException(status_code=409, detail="Benutzername bereits vorhanden")
     role = "admin" if payload.role == "admin" else "user"
+    requester_role = str(auth_context.get("role") or "user")
+    if role == "admin" and requester_role != "admin":
+        raise HTTPException(status_code=403, detail="Nur Admins dürfen weitere Admins erstellen")
     user = AppUser(
         username=normalized_username,
         password_hash=hash_password(payload.password),
@@ -1096,10 +1111,20 @@ def create_user(payload: UserCreateIn, db: Session = Depends(get_db)):
 
 
 @api.patch("/users/{user_id}", response_model=UserOut, dependencies=[Depends(require_permission("manage_users"))])
-def update_user(user_id: int, payload: UserUpdateIn, db: Session = Depends(get_db)):
+def update_user(
+    user_id: int,
+    payload: UserUpdateIn,
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
+    db: Session = Depends(get_db),
+):
     user = db.get(AppUser, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
+    requester_role = str(auth_context.get("role") or "user")
+    if requester_role != "admin" and user.role == "admin":
+        raise HTTPException(status_code=403, detail="Nur Admins dürfen Admin-Benutzer bearbeiten")
+    if payload.role == "admin" and requester_role != "admin":
+        raise HTTPException(status_code=403, detail="Nur Admins dürfen Benutzer zu Admins machen")
 
     if payload.password:
         user.password_hash = hash_password(payload.password)
@@ -1131,6 +1156,9 @@ def delete_user(user_id: int, auth_context: dict[str, object] = Depends(resolve_
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
     if user.username == auth_context.get("username"):
         raise HTTPException(status_code=400, detail="Der aktuell angemeldete Benutzer kann sich nicht selbst löschen")
+    requester_role = str(auth_context.get("role") or "user")
+    if requester_role != "admin" and user.role == "admin":
+        raise HTTPException(status_code=403, detail="Nur Admins dürfen Admin-Benutzer löschen")
     db.delete(user)
     log_event(
         db,

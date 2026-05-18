@@ -1,6 +1,18 @@
 from datetime import datetime
+import re
 
-from pydantic import BaseModel, ConfigDict, Field
+from pydantic import BaseModel, ConfigDict, Field, field_validator
+
+
+PASSWORD_SPECIAL_CHAR_PATTERN = re.compile(r"[^A-Za-z0-9]")
+
+
+def validate_password_strength(value: str) -> str:
+    if len(value) < 8:
+        raise ValueError("Passwort muss mindestens 8 Zeichen lang sein")
+    if PASSWORD_SPECIAL_CHAR_PATTERN.search(value) is None:
+        raise ValueError("Passwort muss mindestens ein Sonderzeichen enthalten")
+    return value
 
 
 class DiskInfo(BaseModel):
@@ -189,12 +201,24 @@ class UserCreateIn(BaseModel):
     permissions: dict[str, bool] = Field(default_factory=dict)
     is_active: bool = True
 
+    @field_validator("password")
+    @classmethod
+    def password_policy(cls, value: str) -> str:
+        return validate_password_strength(value)
+
 
 class UserUpdateIn(BaseModel):
     password: str | None = None
     role: str | None = None
     permissions: dict[str, bool] | None = None
     is_active: bool | None = None
+
+    @field_validator("password")
+    @classmethod
+    def optional_password_policy(cls, value: str | None) -> str | None:
+        if value is None:
+            return value
+        return validate_password_strength(value)
 
 
 class UserOut(BaseModel):

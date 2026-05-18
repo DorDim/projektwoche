@@ -78,6 +78,13 @@
           <div class="mb-4 flex items-center justify-between">
             <h2 class="text-lg font-semibold">Nutzerverwaltung</h2>
           </div>
+          <div class="mb-4 rounded-lg border border-blue-200 bg-blue-50 p-3 text-sm text-blue-900">
+            <p class="font-semibold">Unterschied der Rechte:</p>
+            <ul class="mt-1 list-disc space-y-1 pl-5 text-xs">
+              <li><span class="font-medium">Clients hinzufügen/löschen:</span> steuert nur Geräte-Onboarding und Geräteentfernung.</li>
+              <li><span class="font-medium">Nutzer verwalten:</span> erlaubt Benutzerkonten erstellen, bearbeiten und löschen.</li>
+            </ul>
+          </div>
           <div class="grid gap-4 lg:grid-cols-2">
             <div class="rounded-lg border border-slate-200 p-3">
               <h3 class="mb-3 font-semibold">Neuen Benutzer erstellen</h3>
@@ -94,6 +101,7 @@
                     required
                     class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
                   />
+                  <span class="mt-1 block text-xs text-slate-500">Mindestens 8 Zeichen und mindestens 1 Sonderzeichen.</span>
                 </label>
                 <label class="block">
                   Rolle
@@ -104,7 +112,7 @@
                 </label>
                 <div class="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
                   <label><input type="checkbox" id="permViewDashboard" checked /> Dashboard ansehen</label>
-                  <label><input type="checkbox" id="permAddClients" /> Clients hinzufügen</label>
+                  <label><input type="checkbox" id="permAddClients" /> Clients hinzufügen (Onboarding)</label>
                   <label><input type="checkbox" id="permDeleteClients" /> Clients löschen</label>
                   <label><input type="checkbox" id="permManageUsers" /> Nutzer verwalten</label>
                   <label><input type="checkbox" id="permManageAlertRules" /> Alert-Regeln verwalten</label>
@@ -160,6 +168,7 @@
               placeholder="Leer lassen, um Passwort unverändert zu lassen"
               class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
             />
+            <span class="mt-1 block text-xs text-slate-500">Wenn gesetzt: mindestens 8 Zeichen und mindestens 1 Sonderzeichen.</span>
           </label>
           <div class="grid gap-3 sm:grid-cols-2">
             <label class="block">
@@ -176,7 +185,7 @@
           </div>
           <div class="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
             <label><input type="checkbox" id="editPermViewDashboard" /> Dashboard ansehen</label>
-            <label><input type="checkbox" id="editPermAddClients" /> Clients hinzufügen</label>
+            <label><input type="checkbox" id="editPermAddClients" /> Clients hinzufügen (Onboarding)</label>
             <label><input type="checkbox" id="editPermDeleteClients" /> Clients löschen</label>
             <label><input type="checkbox" id="editPermManageUsers" /> Nutzer verwalten</label>
             <label><input type="checkbox" id="editPermManageAlertRules" /> Alert-Regeln verwalten</label>

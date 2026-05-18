@@ -20,6 +20,8 @@ const PERMISSION_FIELDS = [
   ["view_events", "ViewEvents"],
 ];
 
+const PASSWORD_POLICY_SPECIAL_CHAR_REGEX = /[^A-Za-z0-9]/;
+
 function getEl(id) {
   return document.getElementById(id);
 }
@@ -174,6 +176,16 @@ function formatDuration(seconds) {
   const hours = Math.floor((total % 86400) / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   return `${days}d ${hours}h ${minutes}m`;
+}
+
+function validatePasswordPolicy(password) {
+  if (password.length < 8) {
+    return "Passwort muss mindestens 8 Zeichen lang sein.";
+  }
+  if (!PASSWORD_POLICY_SPECIAL_CHAR_REGEX.test(password)) {
+    return "Passwort muss mindestens ein Sonderzeichen enthalten.";
+  }
+  return "";
 }
 
 async function apiGet(path) {
@@ -750,9 +762,9 @@ function permissionSummaryText(user) {
   }
   const labels = {
     view_dashboard: "Dashboard",
-    add_clients: "Clients+",
-    delete_clients: "Clients-",
-    manage_users: "Nutzer",
+    add_clients: "Client-Onboarding",
+    delete_clients: "Client-Löschen",
+    manage_users: "Nutzerverwaltung",
     manage_alert_rules: "Alerts",
     view_events: "Events",
   };
@@ -818,7 +830,20 @@ function renderUsers(users) {
   cachedUsers = users;
   const tbody = document.querySelector("#usersTable tbody");
   tbody.innerHTML = "";
+  const currentUsername = authContext?.username || "";
+  const currentUserIsAdmin = authContext?.role === "admin";
   users.forEach((user) => {
+    const isSelf = user.username === currentUsername;
+    const isTargetAdmin = user.role === "admin";
+    const canManageAdminTarget = currentUserIsAdmin || !isTargetAdmin;
+    const canDelete = !isSelf && canManageAdminTarget;
+    const canEdit = canManageAdminTarget;
+    const deleteHint = isSelf
+      ? "Eigener Benutzer kann nicht gelöscht werden"
+      : !canManageAdminTarget
+        ? "Nur Admin darf Admin-Benutzer löschen"
+        : "Benutzer löschen";
+    const editHint = !canManageAdminTarget ? "Nur Admin darf Admin-Benutzer bearbeiten" : "Benutzer bearbeiten";
     const tr = document.createElement("tr");
     tr.innerHTML = `
       <td class="px-3 py-2 font-medium">${escapeHtml(user.username)}</td>
@@ -826,8 +851,18 @@ function renderUsers(users) {
       <td class="px-3 py-2 text-xs">${escapeHtml(permissionSummaryText(user))}</td>
       <td class="px-3 py-2">${user.is_active ? "Ja" : "Nein"}</td>
       <td class="px-3 py-2 space-x-2">
-        <button data-edit-user="${user.id}" class="rounded border border-indigo-300 px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Bearbeiten</button>
-        <button data-delete-user="${user.id}" class="rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">Löschen</button>
+        <button
+          data-edit-user="${user.id}"
+          title="${escapeHtml(editHint)}"
+          ${canEdit ? "" : "disabled"}
+          class="rounded border border-indigo-300 px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >Bearbeiten</button>
+        <button
+          data-delete-user="${user.id}"
+          title="${escapeHtml(deleteHint)}"
+          ${canDelete ? "" : "disabled"}
+          class="rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50 disabled:cursor-not-allowed disabled:opacity-50"
+        >Löschen</button>
       </td>
     `;
     tbody.appendChild(tr);
@@ -876,6 +911,11 @@ async function createUserFromForm(event) {
     showError("Benutzername und Passwort sind erforderlich.");
     return;
   }
+  const passwordValidationError = validatePasswordPolicy(password);
+  if (passwordValidationError) {
+    showError(passwordValidationError);
+    return;
+  }
   try {
     await apiPost("/api/users", {
       username,
@@ -918,6 +958,11 @@ async function updateUserFromForm(event) {
     is_active: document.getElementById("editUserActive").checked,
   };
   if (password.trim()) {
+    const passwordValidationError = validatePasswordPolicy(password);
+    if (passwordValidationError) {
+      showEditUserHint(passwordValidationError);
+      return;
+    }
     payload.password = password;
   }
   try {
