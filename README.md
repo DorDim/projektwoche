@@ -55,6 +55,8 @@ PlantUML-Dateien können z. B. mit VS Code PlantUML Plugin oder PlantUML CLI ger
 python -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
+npm install
+npm run build:css
 ```
 
 ## Server als Docker Compose (empfohlen)
@@ -98,6 +100,13 @@ docker compose down -v
 export SERVER_API_KEY="change-me"
 export DATABASE_URL="sqlite:///./hardware_monitor.db"
 uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload
+```
+
+Hinweis zum Frontend: Die Oberfläche nutzt eine lokal gebaute Tailwind-Datei (`server/static/tailwind.css`).
+Nach Änderungen an `server/static/index.html` oder `server/static/app.js` bitte neu bauen:
+
+```bash
+npm run build:css
 ```
 
 ## Client-Agent starten

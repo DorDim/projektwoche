@@ -83,6 +83,12 @@ def require_admin_api_key(x_api_key: Annotated[str | None, Header()] = None):
 api = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
 
 
+def ensure_utc(dt: datetime) -> datetime:
+    if dt.tzinfo is None:
+        return dt.replace(tzinfo=timezone.utc)
+    return dt.astimezone(timezone.utc)
+
+
 def snapshot_summary(snapshot: HardwareSnapshot | None) -> ClientSnapshotSummary | None:
     if snapshot is None:
         return None
@@ -240,15 +246,17 @@ def list_clients(db: Session = Depends(get_db)):
             .order_by(HardwareSnapshot.collected_at.desc())
             .limit(1)
         )
-        age = (now - client.last_seen).total_seconds()
+        last_seen = ensure_utc(client.last_seen)
+        first_seen = ensure_utc(client.first_seen)
+        age = (now - last_seen).total_seconds()
         status = "online" if age <= settings.stale_after_seconds else "offline"
         out.append(
             ClientOut(
                 client_uid=client.client_uid,
                 hostname=client.hostname,
                 os_version=client.os_version,
-                first_seen=client.first_seen,
-                last_seen=client.last_seen,
+                first_seen=first_seen,
+                last_seen=last_seen,
                 status=status,
                 latest_snapshot=snapshot_summary(latest),
             )

@@ -4,3 +4,4 @@ __pycache__/
 hardware_monitor.db
 .client_id
 .env
+node_modules/

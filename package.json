@@ -1,0 +1,29 @@
+{
+  "name": "workspace",
+  "version": "1.0.0",
+  "description": "Dieser Prototyp implementiert ein zentrales Monitoring-System für Hardwareparameter in einem Rechnernetz. Er besteht aus:",
+  "main": "index.js",
+  "directories": {
+    "doc": "docs"
+  },
+  "scripts": {
+    "test": "echo \"Error: no test specified\" && exit 1",
+    "build:css": "npx @tailwindcss/cli -i ./server/static/tailwind.input.css -o ./server/static/tailwind.css --minify",
+    "watch:css": "npx @tailwindcss/cli -i ./server/static/tailwind.input.css -o ./server/static/tailwind.css --watch"
+  },
+  "repository": {
+    "type": "git",
+    "url": "git+https://github.com/DorDim/projektwoche.git"
+  },
+  "keywords": [],
+  "author": "",
+  "license": "ISC",
+  "bugs": {
+    "url": "https://github.com/DorDim/projektwoche/issues"
+  },
+  "homepage": "https://github.com/DorDim/projektwoche#readme",
+  "devDependencies": {
+    "@tailwindcss/cli": "^4.3.0",
+    "tailwindcss": "^4.3.0"
+  }
+}
