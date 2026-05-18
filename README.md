@@ -27,6 +27,8 @@ Er besteht aus:
    - `alert_rules`
    - `alert_events`
    - `api_tokens`
+   - `app_users`
+   - `user_sessions`
 5. Dashboard zeigt aktuelle + historische Daten und Client-Vergleiche an.
 6. Alerts werden bei Regelverletzungen automatisch erzeugt.
 
@@ -40,7 +42,7 @@ Darüber erhältst du:
 - Schritt-für-Schritt-Anleitung
 - sofort kopierbare Beispielbefehle für den Agent-Start
 
-Der Token wird über `POST /api/onboarding-tokens` erzeugt (nur mit Admin-API-Key).
+Der Token wird über `POST /api/onboarding-tokens` erzeugt (Berechtigung `add_clients`).
 
 ## UML-Diagramme
 
@@ -98,6 +100,7 @@ docker compose down -v
 
 ```bash
 export SERVER_API_KEY="change-me"
+export START_ADMIN_USERNAME="admin"
 export START_ADMIN_PASSWORD="changeme-admin-password"
 export DATABASE_URL="sqlite:///./hardware_monitor.db"
 uvicorn server.main:app --host 0.0.0.0 --port 8000 --reload
@@ -160,7 +163,8 @@ systemctl --user disable --now hardware-monitor-client-agent.service
 ## Wichtige Umgebungsvariablen
 
 - `SERVER_API_KEY`: Admin-API-Key für Server/Client-Kommunikation
-- `START_ADMIN_PASSWORD`: Start-Admin-Passwort für Web-Login (Modal), erzeugt bei Login ein Admin-Session-Token
+- `START_ADMIN_USERNAME`: Benutzername für den initialen Admin (Standard `admin`)
+- `START_ADMIN_PASSWORD`: Passwort für den initialen Admin-Benutzer (Login-Screen)
 - `DATABASE_URL`: SQL-Verbindung (SQLite oder PostgreSQL)
 - `DB_SSLMODE`: optionaler SSL-Modus für PostgreSQL (`require`, `verify-ca`, `verify-full`, ...)
 - `DB_POOL_SIZE`: Größe des DB-Verbindungspools (Standard `10`)
@@ -196,11 +200,13 @@ docker compose up -d --build server
 
 ## Beispiel-Endpunkte
 
-- `POST /api/auth/login` (Login via `START_ADMIN_PASSWORD`)
-- `GET /api/me` (Rolle: admin/user)
+- `POST /api/auth/login` (Login via Benutzername + Passwort)
+- `POST /api/auth/logout`
+- `GET /api/me` (Benutzer + Rolle + Berechtigungen)
 - `POST /api/clients/register`
 - `POST /api/clients/{client_uid}/snapshots`
 - `GET /api/clients`
+- `DELETE /api/clients/{client_uid}`
 - `GET /api/clients/{client_uid}/snapshots`
 - `GET /api/clients/{client_uid}/analytics`
 - `GET /api/clients/{client_uid}/anomalies`
@@ -212,13 +218,19 @@ docker compose up -d --build server
 - `POST /api/alert-rules` (Admin)
 - `PATCH /api/alert-rules/{rule_id}` (Admin)
 - `POST /api/onboarding-tokens`
+- `GET /api/users` (Berechtigung `manage_users`)
+- `POST /api/users` (Berechtigung `manage_users`)
+- `PATCH /api/users/{user_id}` (Berechtigung `manage_users`)
+- `DELETE /api/users/{user_id}` (Berechtigung `manage_users`)
 
 ## Optionale Erweiterungen (umgesetzt)
 
 - Rollenmodell:
   - **admin** über `SERVER_API_KEY`
-  - **admin** auch über Login mit `START_ADMIN_PASSWORD` (liefert Admin-Session-Token)
-  - **user** über generierte Client-Tokens
+  - **admin/user** über Login mit `START_ADMIN_USERNAME` + `START_ADMIN_PASSWORD` (bzw. durch Admin angelegte Nutzer)
+  - feinere Berechtigungen z. B. `view_dashboard`, `add_clients`, `delete_clients`, `manage_users`
+  - Admin-Oberfläche zum Erstellen, Bearbeiten und Löschen von Benutzern im Dashboard
+  - **agent** über generierte Client-Tokens (nur Datenupload)
 - Export:
   - JSON, CSV und PDF je Client (`/api/clients/{uid}/export`)
 - Trends und Durchschnittswerte:
@@ -242,6 +254,7 @@ docker compose up -d --build server
 
 - Fehlerbehandlung im Agenten mit Logging + Exponential Backoff
 - API-Key-Schutz gegen unbefugten API-Zugriff
+- Session-Tokens für Login-Sitzungen im Dashboard
 - Zusätzliche pro-Client API-Tokens für Onboarding
 - Klare Trennung von Client und Server
 - SQL-basierte Persistenz und erweiterbares Datenmodell

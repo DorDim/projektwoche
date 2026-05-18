@@ -18,7 +18,17 @@ from sqlalchemy.orm import Session
 from server.alerts import evaluate_rule, metric_value_for_rule
 from server.config import settings
 from server.database import Base, engine, get_db
-from server.models import AlertEvent, AlertRule, ApiToken, Client, EventLog, HardwareSnapshot, utc_now
+from server.models import (
+    AlertEvent,
+    AlertRule,
+    ApiToken,
+    AppUser,
+    Client,
+    EventLog,
+    HardwareSnapshot,
+    UserSession,
+    utc_now,
+)
 from server.schemas import (
     AnomalyOut,
     AlertEventOut,
@@ -38,6 +48,9 @@ from server.schemas import (
     RegisterClientRequest,
     RegisterClientResponse,
     SnapshotOut,
+    UserCreateIn,
+    UserOut,
+    UserUpdateIn,
 )
 
 app = FastAPI(title="Hardwareüberwachung", version="0.1.0")
@@ -54,9 +67,58 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 logger = logging.getLogger("hardware-monitor-server")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
+ALL_PERMISSIONS = {
+    "view_dashboard": True,
+    "add_clients": True,
+    "delete_clients": True,
+    "manage_users": True,
+    "manage_alert_rules": True,
+    "view_events": True,
+    "ingest_data": True,
+}
+
+DEFAULT_USER_PERMISSIONS = {
+    "view_dashboard": True,
+    "add_clients": False,
+    "delete_clients": False,
+    "manage_users": False,
+    "manage_alert_rules": False,
+    "view_events": False,
+    "ingest_data": False,
+}
+
+
+def normalize_permissions(permissions: dict | None, *, role: str) -> dict[str, bool]:
+    if role == "admin":
+        return dict(ALL_PERMISSIONS)
+    merged = dict(DEFAULT_USER_PERMISSIONS)
+    for key, value in (permissions or {}).items():
+        if key in merged:
+            merged[key] = bool(value)
+    return merged
+
 
 def hash_token(token: str) -> str:
     return hashlib.sha256(token.encode("utf-8")).hexdigest()
+
+
+def hash_password(password: str, *, salt_hex: str | None = None) -> str:
+    salt = bytes.fromhex(salt_hex) if salt_hex else secrets.token_bytes(16)
+    digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200_000)
+    return f"{salt.hex()}${digest.hex()}"
+
+
+def verify_password(password: str, stored_hash: str) -> bool:
+    try:
+        salt_hex, expected_hex = stored_hash.split("$", 1)
+    except ValueError:
+        return False
+    candidate = hash_password(password, salt_hex=salt_hex)
+    try:
+        _, candidate_hex = candidate.split("$", 1)
+    except ValueError:
+        return False
+    return secrets.compare_digest(candidate_hex, expected_hex)
 
 
 def server_origin_and_host(request: Request) -> tuple[str, str]:
@@ -89,21 +151,34 @@ def log_event(
     )
 
 
-def create_admin_session_token(db: Session, token_name_prefix: str = "admin-session") -> tuple[str, str]:
+def create_agent_token(db: Session, token_name_prefix: str = "agent-token") -> tuple[str, str]:
     raw_token = secrets.token_urlsafe(32)
     token_name = f"{token_name_prefix}:{int(datetime.now(timezone.utc).timestamp())}"
     db.add(ApiToken(name=token_name, token_hash=hash_token(raw_token), enabled=True))
     return raw_token, token_name
 
 
+def create_user_session(db: Session, user: AppUser) -> tuple[str, str]:
+    raw_token = secrets.token_urlsafe(32)
+    token_name = f"session:{user.username}:{int(datetime.now(timezone.utc).timestamp())}"
+    db.add(UserSession(user_id=user.id, token_hash=hash_token(raw_token), enabled=True))
+    return raw_token, token_name
+
+
 def resolve_auth_context(
     x_api_key: Annotated[str | None, Header()] = None,
     db: Session = Depends(get_db),
-) -> dict[str, str | None]:
+) -> dict[str, object]:
     if not x_api_key:
         raise HTTPException(status_code=401, detail="fehlender API-Schlüssel")
     if x_api_key == settings.api_key:
-        return {"role": "admin", "token_name": "SERVER_API_KEY"}
+        return {
+            "role": "admin",
+            "username": "server-admin",
+            "token_name": "SERVER_API_KEY",
+            "permissions": dict(ALL_PERMISSIONS),
+            "session_id": None,
+        }
 
     token = db.scalar(
         select(ApiToken).where(
@@ -111,7 +186,30 @@ def resolve_auth_context(
             ApiToken.enabled.is_(True),
         )
     )
-    if token is None:
+    if token is not None:
+        # Onboarding/agent tokens are restricted to ingest operations only.
+        return {
+            "role": "agent",
+            "username": token.name,
+            "token_name": token.name,
+            "permissions": {
+                "view_dashboard": False,
+                "add_clients": False,
+                "delete_clients": False,
+                "manage_users": False,
+                "manage_alert_rules": False,
+                "view_events": False,
+                "ingest_data": True,
+            },
+            "session_id": None,
+        }
+
+    session = db.scalar(
+        select(UserSession)
+        .where(UserSession.token_hash == hash_token(x_api_key), UserSession.enabled.is_(True))
+        .limit(1)
+    )
+    if session is None:
         log_event(
             db,
             level="warning",
@@ -121,20 +219,47 @@ def resolve_auth_context(
         db.commit()
         raise HTTPException(status_code=401, detail="ungültiger API-Schlüssel")
 
-    role = "admin" if token.name.startswith("admin-session:") else "user"
-    return {"role": role, "token_name": token.name}
+    user = db.get(AppUser, session.user_id)
+    if user is None or not user.is_active:
+        log_event(
+            db,
+            level="warning",
+            event_type="auth_failed",
+            message="Token zu inaktivem oder fehlendem Benutzer erkannt",
+        )
+        db.commit()
+        raise HTTPException(status_code=401, detail="ungültiger API-Schlüssel")
+
+    permissions = normalize_permissions(user.permissions, role=user.role)
+    return {
+        "role": user.role,
+        "username": user.username,
+        "token_name": f"session:{user.username}",
+        "permissions": permissions,
+        "session_id": session.id,
+    }
 
 
 def require_api_key(
-    auth_context: dict[str, str | None] = Depends(resolve_auth_context),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
 ):
     return auth_context
 
 
-def require_admin_api_key(auth_context: dict[str, str | None] = Depends(resolve_auth_context)):
+def require_admin_api_key(auth_context: dict[str, object] = Depends(resolve_auth_context)):
     if auth_context["role"] != "admin":
         raise HTTPException(status_code=403, detail="nur mit Admin-API-Schlüssel erlaubt")
     return auth_context
+
+
+def require_permission(permission: str):
+    def checker(auth_context: dict[str, object] = Depends(resolve_auth_context)):
+        permissions = auth_context.get("permissions") or {}
+        if auth_context.get("role") == "admin" or permissions.get(permission):
+            return auth_context
+        raise HTTPException(status_code=403, detail=f"Berechtigung fehlt: {permission}")
+
+    return checker
 
 
 api = APIRouter(prefix="/api", dependencies=[Depends(require_api_key)])
@@ -349,7 +474,35 @@ def startup():
                     enabled=True,
                 )
             )
-            db.commit()
+        if settings.start_admin_password:
+            admin_user = db.scalar(select(AppUser).where(AppUser.username == settings.start_admin_username))
+            if admin_user is None:
+                admin_user = AppUser(
+                    username=settings.start_admin_username,
+                    password_hash=hash_password(settings.start_admin_password),
+                    role="admin",
+                    permissions=dict(ALL_PERMISSIONS),
+                    is_active=True,
+                )
+                db.add(admin_user)
+                log_event(
+                    db,
+                    level="info",
+                    event_type="admin_bootstrap_created",
+                    message=f"Start-Admin '{settings.start_admin_username}' wurde angelegt.",
+                )
+            elif not verify_password(settings.start_admin_password, admin_user.password_hash):
+                admin_user.password_hash = hash_password(settings.start_admin_password)
+                admin_user.role = "admin"
+                admin_user.permissions = dict(ALL_PERMISSIONS)
+                admin_user.is_active = True
+                log_event(
+                    db,
+                    level="info",
+                    event_type="admin_bootstrap_updated",
+                    message=f"Start-Admin '{settings.start_admin_username}' wurde mit aktueller .env aktualisiert.",
+                )
+        db.commit()
 
 
 @app.get("/")
@@ -364,41 +517,73 @@ def health():
 
 @app.post("/api/auth/login", response_model=LoginResponse)
 def login(payload: LoginRequest, db: Session = Depends(get_db)):
-    configured_password = settings.start_admin_password
-    if not configured_password:
-        raise HTTPException(
-            status_code=503,
-            detail="START_ADMIN_PASSWORD ist nicht gesetzt. Login per Passwort ist deaktiviert.",
-        )
-
-    if not secrets.compare_digest(payload.password, configured_password):
+    user = db.scalar(select(AppUser).where(AppUser.username == payload.username))
+    if user is None or not user.is_active:
         log_event(
             db,
             level="warning",
-            event_type="admin_login_failed",
-            message="Fehlgeschlagener Admin-Login (Passwort ungültig).",
+            event_type="login_failed",
+            message=f"Fehlgeschlagener Login für Benutzer '{payload.username}'.",
         )
         db.commit()
-        raise HTTPException(status_code=401, detail="Ungültiges Passwort")
+        raise HTTPException(status_code=401, detail="Ungültiger Benutzer oder Passwort")
 
-    token_value, token_name = create_admin_session_token(db)
+    if not verify_password(payload.password, user.password_hash):
+        log_event(
+            db,
+            level="warning",
+            event_type="login_failed",
+            message=f"Fehlgeschlagener Login für Benutzer '{payload.username}'.",
+            details={"username": payload.username},
+        )
+        db.commit()
+        raise HTTPException(status_code=401, detail="Ungültiger Benutzer oder Passwort")
+
+    token_value, token_name = create_user_session(db, user)
     log_event(
         db,
         level="info",
-        event_type="admin_login_success",
-        message="Admin-Login erfolgreich, Session-Token erstellt.",
-        details={"token_name": token_name},
+        event_type="login_success",
+        message=f"Login erfolgreich für Benutzer '{payload.username}'.",
+        details={"username": payload.username, "token_name": token_name},
     )
     db.commit()
-    return LoginResponse(token=token_value, role="admin", token_name=token_name)
+    return LoginResponse(token=token_value, role=user.role, token_name=token_name, username=user.username)
 
 
 @api.get("/me", response_model=AuthContextOut)
-def auth_me(auth_context: dict[str, str | None] = Depends(resolve_auth_context)):
-    return AuthContextOut(role=str(auth_context["role"]), token_name=auth_context.get("token_name"))
+def auth_me(auth_context: dict[str, object] = Depends(resolve_auth_context)):
+    return AuthContextOut(
+        username=str(auth_context.get("username") or "unknown"),
+        role=str(auth_context["role"]),
+        permissions=dict(auth_context.get("permissions") or {}),
+        token_name=auth_context.get("token_name"),
+    )
 
 
-@api.post("/clients/register", response_model=RegisterClientResponse)
+@api.post("/auth/logout")
+def logout(auth_context: dict[str, object] = Depends(resolve_auth_context), db: Session = Depends(get_db)):
+    session_id = auth_context.get("session_id")
+    if session_id:
+        session = db.get(UserSession, int(session_id))
+        if session is not None:
+            session.enabled = False
+            log_event(
+                db,
+                level="info",
+                event_type="logout",
+                message=f"Logout für Benutzer '{auth_context.get('username')}'.",
+                details={"username": auth_context.get("username")},
+            )
+            db.commit()
+    return {"status": "ok"}
+
+
+@api.post(
+    "/clients/register",
+    response_model=RegisterClientResponse,
+    dependencies=[Depends(require_permission("ingest_data"))],
+)
 def register_client(payload: RegisterClientRequest, db: Session = Depends(get_db)):
     now = utc_now()
     client = db.scalar(select(Client).where(Client.client_uid == payload.client_uid))
@@ -430,7 +615,10 @@ def register_client(payload: RegisterClientRequest, db: Session = Depends(get_db
     )
 
 
-@api.post("/clients/{client_uid}/snapshots")
+@api.post(
+    "/clients/{client_uid}/snapshots",
+    dependencies=[Depends(require_permission("ingest_data"))],
+)
 def ingest_snapshot(client_uid: str, payload: HardwareSnapshotIn, db: Session = Depends(get_db)):
     client = db.scalar(select(Client).where(Client.client_uid == client_uid))
     if client is None:
@@ -510,7 +698,7 @@ def ingest_snapshot(client_uid: str, payload: HardwareSnapshotIn, db: Session = 
     return {"snapshot_id": snapshot.id, "alerts": alerts_triggered}
 
 
-@api.get("/clients", response_model=list[ClientOut])
+@api.get("/clients", response_model=list[ClientOut], dependencies=[Depends(require_permission("view_dashboard"))])
 def list_clients(db: Session = Depends(get_db)):
     now = utc_now()
     clients = db.scalars(select(Client).order_by(Client.hostname.asc())).all()
@@ -540,7 +728,28 @@ def list_clients(db: Session = Depends(get_db)):
     return out
 
 
-@api.get("/clients/{client_uid}/snapshots", response_model=list[SnapshotOut])
+@api.delete("/clients/{client_uid}", dependencies=[Depends(require_permission("delete_clients"))])
+def delete_client(client_uid: str, db: Session = Depends(get_db)):
+    client = db.scalar(select(Client).where(Client.client_uid == client_uid))
+    if client is None:
+        raise HTTPException(status_code=404, detail="Client nicht gefunden")
+    db.delete(client)
+    log_event(
+        db,
+        level="warning",
+        event_type="client_deleted",
+        message=f"Client '{client_uid}' wurde gelöscht.",
+        client_uid=client_uid,
+    )
+    db.commit()
+    return {"status": "deleted", "client_uid": client_uid}
+
+
+@api.get(
+    "/clients/{client_uid}/snapshots",
+    response_model=list[SnapshotOut],
+    dependencies=[Depends(require_permission("view_dashboard"))],
+)
 def list_snapshots(
     client_uid: str,
     limit: int = Query(default=200, ge=1, le=2000),
@@ -556,7 +765,11 @@ def list_snapshots(
     return [to_snapshot_out(snapshot) for snapshot in snapshots]
 
 
-@api.get("/clients/{client_uid}/analytics", response_model=ClientAnalyticsOut)
+@api.get(
+    "/clients/{client_uid}/analytics",
+    response_model=ClientAnalyticsOut,
+    dependencies=[Depends(require_permission("view_dashboard"))],
+)
 def client_analytics(
     client_uid: str,
     limit: int = Query(default=200, ge=2, le=5000),
@@ -572,7 +785,11 @@ def client_analytics(
     return analytics_for_snapshots(client_uid, snapshots)
 
 
-@api.get("/clients/{client_uid}/anomalies", response_model=list[AnomalyOut])
+@api.get(
+    "/clients/{client_uid}/anomalies",
+    response_model=list[AnomalyOut],
+    dependencies=[Depends(require_permission("view_dashboard"))],
+)
 def client_anomalies(
     client_uid: str,
     limit: int = Query(default=200, ge=2, le=5000),
@@ -588,7 +805,7 @@ def client_anomalies(
     return detect_anomalies(snapshots)
 
 
-@api.get("/clients/{client_uid}/export")
+@api.get("/clients/{client_uid}/export", dependencies=[Depends(require_permission("view_dashboard"))])
 def export_client_data(
     client_uid: str,
     export_format: str = Query(default="json", alias="format"),
@@ -686,7 +903,7 @@ def export_client_data(
     )
 
 
-@api.get("/compare", response_model=list[CompareClientRow])
+@api.get("/compare", response_model=list[CompareClientRow], dependencies=[Depends(require_permission("view_dashboard"))])
 def compare_clients(client_uids: list[str] = Query(default=[]), db: Session = Depends(get_db)):
     rows: list[CompareClientRow] = []
     for client_uid in client_uids:
@@ -714,7 +931,7 @@ def compare_clients(client_uids: list[str] = Query(default=[]), db: Session = De
     return rows
 
 
-@api.get("/alerts", response_model=list[AlertEventOut])
+@api.get("/alerts", response_model=list[AlertEventOut], dependencies=[Depends(require_permission("view_dashboard"))])
 def list_alerts(
     client_uid: str | None = None,
     limit: int = Query(default=100, ge=1, le=1000),
@@ -748,7 +965,7 @@ def list_alerts(
     return out
 
 
-@api.get("/events", response_model=list[EventLogOut], dependencies=[Depends(require_admin_api_key)])
+@api.get("/events", response_model=list[EventLogOut], dependencies=[Depends(require_permission("view_events"))])
 def list_events(
     level: str | None = None,
     event_type: str | None = None,
@@ -767,12 +984,12 @@ def list_events(
     return db.scalars(query).all()
 
 
-@api.get("/alert-rules", response_model=list[AlertRuleOut])
+@api.get("/alert-rules", response_model=list[AlertRuleOut], dependencies=[Depends(require_permission("view_dashboard"))])
 def list_alert_rules(db: Session = Depends(get_db)):
     return db.scalars(select(AlertRule).order_by(AlertRule.created_at.asc())).all()
 
 
-@api.post("/alert-rules", response_model=AlertRuleOut, dependencies=[Depends(require_admin_api_key)])
+@api.post("/alert-rules", response_model=AlertRuleOut, dependencies=[Depends(require_permission("manage_alert_rules"))])
 def create_alert_rule(payload: AlertRuleIn, db: Session = Depends(get_db)):
     existing = db.scalar(select(AlertRule).where(AlertRule.name == payload.name))
     if existing:
@@ -804,7 +1021,11 @@ def create_alert_rule(payload: AlertRuleIn, db: Session = Depends(get_db)):
     return rule
 
 
-@api.patch("/alert-rules/{rule_id}", response_model=AlertRuleOut, dependencies=[Depends(require_admin_api_key)])
+@api.patch(
+    "/alert-rules/{rule_id}",
+    response_model=AlertRuleOut,
+    dependencies=[Depends(require_permission("manage_alert_rules"))],
+)
 def update_alert_rule(
     rule_id: int,
     enabled: bool | None = None,
@@ -830,20 +1051,100 @@ def update_alert_rule(
     return rule
 
 
+@api.get("/users", response_model=list[UserOut], dependencies=[Depends(require_permission("manage_users"))])
+def list_users(db: Session = Depends(get_db)):
+    return db.scalars(select(AppUser).order_by(AppUser.username.asc())).all()
+
+
+@api.post("/users", response_model=UserOut, dependencies=[Depends(require_permission("manage_users"))])
+def create_user(payload: UserCreateIn, db: Session = Depends(get_db)):
+    normalized_username = payload.username.strip()
+    if not normalized_username:
+        raise HTTPException(status_code=422, detail="Benutzername darf nicht leer sein")
+    existing = db.scalar(select(AppUser).where(AppUser.username == normalized_username))
+    if existing:
+        raise HTTPException(status_code=409, detail="Benutzername bereits vorhanden")
+    role = "admin" if payload.role == "admin" else "user"
+    user = AppUser(
+        username=normalized_username,
+        password_hash=hash_password(payload.password),
+        role=role,
+        permissions=normalize_permissions(payload.permissions, role=role),
+        is_active=payload.is_active,
+    )
+    db.add(user)
+    log_event(
+        db,
+        level="info",
+        event_type="user_created",
+        message=f"Benutzer '{user.username}' erstellt.",
+        details={"username": user.username, "role": user.role},
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@api.patch("/users/{user_id}", response_model=UserOut, dependencies=[Depends(require_permission("manage_users"))])
+def update_user(user_id: int, payload: UserUpdateIn, db: Session = Depends(get_db)):
+    user = db.get(AppUser, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
+
+    if payload.password:
+        user.password_hash = hash_password(payload.password)
+    if payload.role:
+        user.role = "admin" if payload.role == "admin" else "user"
+    if payload.permissions is not None:
+        user.permissions = normalize_permissions(payload.permissions, role=user.role)
+    elif payload.role is not None:
+        user.permissions = normalize_permissions(user.permissions, role=user.role)
+    if payload.is_active is not None:
+        user.is_active = payload.is_active
+
+    log_event(
+        db,
+        level="info",
+        event_type="user_updated",
+        message=f"Benutzer '{user.username}' aktualisiert.",
+        details={"user_id": user.id, "role": user.role, "is_active": user.is_active},
+    )
+    db.commit()
+    db.refresh(user)
+    return user
+
+
+@api.delete("/users/{user_id}", dependencies=[Depends(require_permission("manage_users"))])
+def delete_user(user_id: int, auth_context: dict[str, object] = Depends(resolve_auth_context), db: Session = Depends(get_db)):
+    user = db.get(AppUser, user_id)
+    if user is None:
+        raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
+    if user.username == auth_context.get("username"):
+        raise HTTPException(status_code=400, detail="Der aktuell angemeldete Benutzer kann sich nicht selbst löschen")
+    db.delete(user)
+    log_event(
+        db,
+        level="warning",
+        event_type="user_deleted",
+        message=f"Benutzer '{user.username}' gelöscht.",
+        details={"user_id": user_id},
+    )
+    db.commit()
+    return {"status": "deleted", "user_id": user_id}
+
+
 @api.post(
     "/onboarding-tokens",
     response_model=OnboardingTokenOut,
-    dependencies=[Depends(require_admin_api_key)],
+    dependencies=[Depends(require_permission("add_clients"))],
 )
 def create_onboarding_token(
     payload: OnboardingTokenCreate,
     request: Request,
     db: Session = Depends(get_db),
 ):
-    token_value = secrets.token_urlsafe(32)
-    token_name = payload.name or f"Client-Token-{int(datetime.now(timezone.utc).timestamp())}"
-    api_token = ApiToken(name=token_name, token_hash=hash_token(token_value), enabled=True)
-    db.add(api_token)
+    token_name_prefix = payload.name or "Client-Token"
+    token_value, token_name = create_agent_token(db, token_name_prefix=token_name_prefix)
     log_event(
         db,
         level="info",
@@ -852,7 +1153,9 @@ def create_onboarding_token(
         details={"token_name": token_name},
     )
     db.commit()
-    db.refresh(api_token)
+    api_token = db.scalar(select(ApiToken).where(ApiToken.name == token_name))
+    if api_token is None:
+        raise HTTPException(status_code=500, detail="Token konnte nicht geladen werden")
     origin, host = server_origin_and_host(request)
     return OnboardingTokenOut(
         name=api_token.name,

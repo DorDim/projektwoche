@@ -5,55 +5,92 @@ let diskChart = null;
 let compareChart = null;
 let onboardingTokenValue = "";
 let currentApiKey = "";
+let authContext = null;
+let cachedUsers = [];
 
 const REPOSITORY_URL = "https://github.com/DorDim/projektwoche.git";
-const API_KEY_STORAGE_KEY = "hardware-monitor-api-key";
+const API_KEY_STORAGE_KEY = "hardware-monitor-auth-token";
+const PERMISSION_FIELDS = [
+  ["view_dashboard", "ViewDashboard"],
+  ["add_clients", "AddClients"],
+  ["delete_clients", "DeleteClients"],
+  ["manage_users", "ManageUsers"],
+  ["manage_alert_rules", "ManageAlertRules"],
+  ["view_events", "ViewEvents"],
+];
 
 function headers() {
   return { "X-API-Key": currentApiKey };
 }
 
-function setCurrentApiKey(newKey) {
+function setCurrentApiKey(newKey, persist = true) {
   currentApiKey = (newKey || "").trim();
-  persistApiKey();
+  if (persist) {
+    persistApiKey();
+  }
 }
 
-function setApiKeyState() {
-  const state = document.getElementById("apiKeyState");
-  const hasKey = Boolean(currentApiKey);
-  state.textContent = hasKey ? "API-Key gesetzt" : "Kein API-Key gesetzt";
-  state.className = hasKey ? "mt-1 text-sm font-medium text-emerald-700" : "mt-1 text-sm font-medium text-amber-700";
-  document.getElementById("openApiKeyModalBtn").textContent = hasKey ? "API-Key ändern" : "API-Key setzen";
+function hasPermission(permissionName) {
+  if (!authContext) return false;
+  if (authContext.role === "admin") return true;
+  return Boolean(authContext.permissions && authContext.permissions[permissionName]);
 }
 
-function showApiKeyHint(message = "") {
-  const hint = document.getElementById("apiKeyModalHint");
+function collectPermissions(prefix) {
+  const permissions = {};
+  PERMISSION_FIELDS.forEach(([permissionKey, fieldSuffix]) => {
+    const checkbox = document.getElementById(`${prefix}${fieldSuffix}`);
+    permissions[permissionKey] = Boolean(checkbox?.checked);
+  });
+  return permissions;
+}
+
+function applyPermissions(prefix, permissions) {
+  PERMISSION_FIELDS.forEach(([permissionKey, fieldSuffix]) => {
+    const checkbox = document.getElementById(`${prefix}${fieldSuffix}`);
+    if (!checkbox) return;
+    checkbox.checked = Boolean(permissions && permissions[permissionKey]);
+  });
+}
+
+function setPermissionControlsDisabled(prefix, isDisabled) {
+  PERMISSION_FIELDS.forEach(([_permissionKey, fieldSuffix]) => {
+    const checkbox = document.getElementById(`${prefix}${fieldSuffix}`);
+    if (!checkbox) return;
+    checkbox.disabled = isDisabled;
+  });
+}
+
+function updateAuthUi() {
+  const state = document.getElementById("authState");
+  const username = authContext?.username || "-";
+  const role = authContext?.role || "-";
+  state.textContent = `${username} (${role})`;
+  document.getElementById("openOnboardingBtn").classList.toggle("hidden", !hasPermission("add_clients"));
+  document.getElementById("userManagementSection").classList.toggle("hidden", !hasPermission("manage_users"));
+}
+
+function showLoginScreen() {
+  document.getElementById("dashboardApp").classList.add("hidden");
+  document.getElementById("loginScreen").classList.remove("hidden");
+  document.getElementById("loginScreen").classList.add("flex");
+}
+
+function showDashboard() {
+  document.getElementById("loginScreen").classList.add("hidden");
+  document.getElementById("loginScreen").classList.remove("flex");
+  document.getElementById("dashboardApp").classList.remove("hidden");
+}
+
+function showLoginError(message = "") {
+  const hint = document.getElementById("loginError");
   if (!message) {
-    hint.textContent = "";
     hint.classList.add("hidden");
+    hint.textContent = "";
     return;
   }
   hint.textContent = message;
   hint.classList.remove("hidden");
-}
-
-function openApiKeyModal(message = "") {
-  const modal = document.getElementById("apiKeyModal");
-  const input = document.getElementById("apiKeyModalInput");
-  const passwordInput = document.getElementById("adminPasswordInput");
-  input.value = currentApiKey;
-  passwordInput.value = "";
-  showApiKeyHint(message);
-  modal.classList.remove("hidden");
-  modal.classList.add("flex");
-  setTimeout(() => passwordInput.focus(), 0);
-}
-
-function closeApiKeyModal() {
-  const modal = document.getElementById("apiKeyModal");
-  modal.classList.add("hidden");
-  modal.classList.remove("flex");
-  showApiKeyHint("");
 }
 
 function loadSavedApiKey() {
@@ -65,7 +102,6 @@ function loadSavedApiKey() {
   } catch (_error) {
     // Local storage might be disabled in hardened browsers.
   }
-  setApiKeyState();
 }
 
 function persistApiKey() {
@@ -78,7 +114,6 @@ function persistApiKey() {
   } catch (_error) {
     // Ignore storage errors; the app still works without persistence.
   }
-  setApiKeyState();
 }
 
 function fmt(value, digits = 2) {
@@ -109,23 +144,21 @@ function formatDuration(seconds) {
 
 async function apiGet(path) {
   if (!currentApiKey) {
-    openApiKeyModal("Bitte zuerst einen API-Key eingeben.");
-    throw new Error("Kein API-Key gesetzt.");
+    throw new Error("Nicht angemeldet.");
   }
   const response = await fetch(path, { headers: headers() });
   if (!response.ok) {
     if (response.status === 401) {
-      openApiKeyModal("API-Key ungültig oder abgelaufen. Bitte neu eingeben.");
+      await forceLogout("Sitzung abgelaufen. Bitte erneut anmelden.");
     }
     throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   }
   return response.json();
 }
 
-async function apiPost(path, payload) {
+async function apiPost(path, payload = {}) {
   if (!currentApiKey) {
-    openApiKeyModal("Bitte zuerst einen API-Key eingeben.");
-    throw new Error("Kein API-Key gesetzt.");
+    throw new Error("Nicht angemeldet.");
   }
   const response = await fetch(path, {
     method: "POST",
@@ -134,10 +167,50 @@ async function apiPost(path, payload) {
   });
   if (!response.ok) {
     if (response.status === 401) {
-      openApiKeyModal("API-Key ungültig oder abgelaufen. Bitte neu eingeben.");
+      await forceLogout("Sitzung abgelaufen. Bitte erneut anmelden.");
     }
     throw new Error(`HTTP ${response.status}: ${await response.text()}`);
   }
+  if (response.status === 204) {
+    return null;
+  }
+  return response.json();
+}
+
+async function apiPatch(path, payload = {}) {
+  if (!currentApiKey) {
+    throw new Error("Nicht angemeldet.");
+  }
+  const response = await fetch(path, {
+    method: "PATCH",
+    headers: { ...headers(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    if (response.status === 401) {
+      await forceLogout("Sitzung abgelaufen. Bitte erneut anmelden.");
+    }
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+  if (response.status === 204) return null;
+  return response.json();
+}
+
+async function apiDelete(path) {
+  if (!currentApiKey) {
+    throw new Error("Nicht angemeldet.");
+  }
+  const response = await fetch(path, {
+    method: "DELETE",
+    headers: headers(),
+  });
+  if (!response.ok) {
+    if (response.status === 401) {
+      await forceLogout("Sitzung abgelaufen. Bitte erneut anmelden.");
+    }
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+  if (response.status === 204) return null;
   return response.json();
 }
 
@@ -178,6 +251,7 @@ function showOnboardingStatus(message, isError = false) {
 function renderClients(clients) {
   const tbody = document.querySelector("#clientsTable tbody");
   tbody.innerHTML = "";
+  const canDeleteClients = hasPermission("delete_clients");
 
   clients.forEach((client) => {
     const tr = document.createElement("tr");
@@ -198,9 +272,19 @@ function renderClients(clients) {
       <td class="px-3 py-2">${fmt(client.latest_snapshot?.ram_total_mb, 0)}</td>
       <td class="px-3 py-2">${fmt(client.latest_snapshot?.min_disk_free_percent, 2)}</td>
       <td class="px-3 py-2">${new Date(client.last_seen).toLocaleString()}</td>
+      <td class="px-3 py-2">
+        ${
+          canDeleteClients
+            ? `<button data-delete-client="${escapeHtml(client.client_uid)}" class="rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">Löschen</button>`
+            : "-"
+        }
+      </td>
     `;
     tr.addEventListener("click", (event) => {
       if (event.target && event.target.classList.contains("compare-check")) {
+        return;
+      }
+      if (event.target && event.target.dataset && event.target.dataset.deleteClient) {
         return;
       }
       selectedClientUid = client.client_uid;
@@ -212,6 +296,25 @@ function renderClients(clients) {
   document.querySelectorAll(".compare-check").forEach((checkbox) => {
     checkbox.addEventListener("change", () => {
       loadCompare().catch((error) => showError(error.message));
+    });
+  });
+  document.querySelectorAll("[data-delete-client]").forEach((button) => {
+    button.addEventListener("click", async (event) => {
+      event.preventDefault();
+      event.stopPropagation();
+      const clientUid = button.dataset.deleteClient;
+      if (!clientUid) return;
+      const confirmed = window.confirm(`Client '${clientUid}' wirklich löschen?`);
+      if (!confirmed) return;
+      try {
+        await apiDelete(`/api/clients/${encodeURIComponent(clientUid)}`);
+        if (selectedClientUid === clientUid) {
+          selectedClientUid = null;
+        }
+        await refreshAll();
+      } catch (error) {
+        showError(error.message);
+      }
     });
   });
 }
@@ -570,6 +673,189 @@ async function loadAlerts() {
   });
 }
 
+function permissionSummaryText(user) {
+  if (user.role === "admin") {
+    return "Alle";
+  }
+  const labels = {
+    view_dashboard: "Dashboard",
+    add_clients: "Clients+",
+    delete_clients: "Clients-",
+    manage_users: "Nutzer",
+    manage_alert_rules: "Alerts",
+    view_events: "Events",
+  };
+  const active = Object.entries(user.permissions || {})
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([key]) => labels[key] || key);
+  return active.length > 0 ? active.join(", ") : "Keine";
+}
+
+function showEditUserHint(message = "") {
+  const hint = document.getElementById("editUserHint");
+  if (!message) {
+    hint.textContent = "";
+    hint.classList.add("hidden");
+    return;
+  }
+  hint.textContent = message;
+  hint.classList.remove("hidden");
+}
+
+function applyRoleToPermissionForm(prefix, roleValue) {
+  const isAdmin = roleValue === "admin";
+  if (isAdmin) {
+    applyPermissions(prefix, {
+      view_dashboard: true,
+      add_clients: true,
+      delete_clients: true,
+      manage_users: true,
+      manage_alert_rules: true,
+      view_events: true,
+    });
+  }
+  setPermissionControlsDisabled(prefix, isAdmin);
+}
+
+function openEditUserModal(userId) {
+  const user = cachedUsers.find((entry) => entry.id === Number(userId));
+  if (!user) {
+    showError("Benutzer nicht gefunden.");
+    return;
+  }
+  document.getElementById("editUserId").value = String(user.id);
+  document.getElementById("editUserUsername").value = user.username;
+  document.getElementById("editUserPassword").value = "";
+  document.getElementById("editUserRole").value = user.role;
+  document.getElementById("editUserActive").checked = Boolean(user.is_active);
+  applyPermissions("editPerm", user.permissions || {});
+  applyRoleToPermissionForm("editPerm", user.role);
+  showEditUserHint("");
+  const modal = document.getElementById("editUserModal");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeEditUserModal() {
+  const modal = document.getElementById("editUserModal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+  showEditUserHint("");
+}
+
+function renderUsers(users) {
+  cachedUsers = users;
+  const tbody = document.querySelector("#usersTable tbody");
+  tbody.innerHTML = "";
+  users.forEach((user) => {
+    const tr = document.createElement("tr");
+    tr.innerHTML = `
+      <td class="px-3 py-2 font-medium">${escapeHtml(user.username)}</td>
+      <td class="px-3 py-2">${escapeHtml(user.role)}</td>
+      <td class="px-3 py-2 text-xs">${escapeHtml(permissionSummaryText(user))}</td>
+      <td class="px-3 py-2">${user.is_active ? "Ja" : "Nein"}</td>
+      <td class="px-3 py-2 space-x-2">
+        <button data-edit-user="${user.id}" class="rounded border border-indigo-300 px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Bearbeiten</button>
+        <button data-delete-user="${user.id}" class="rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">Löschen</button>
+      </td>
+    `;
+    tbody.appendChild(tr);
+  });
+  document.querySelectorAll("[data-edit-user]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const userId = button.dataset.editUser;
+      if (!userId) return;
+      openEditUserModal(userId);
+    });
+  });
+  document.querySelectorAll("[data-delete-user]").forEach((button) => {
+    button.addEventListener("click", async () => {
+      const userId = button.dataset.deleteUser;
+      if (!userId) return;
+      if (!window.confirm("Benutzer wirklich löschen?")) return;
+      try {
+        await apiDelete(`/api/users/${userId}`);
+        await loadUsers();
+      } catch (error) {
+        showError(error.message);
+      }
+    });
+  });
+}
+
+async function loadUsers() {
+  if (!hasPermission("manage_users")) {
+    return;
+  }
+  const users = await apiGet("/api/users");
+  renderUsers(users);
+}
+
+async function createUserFromForm(event) {
+  event.preventDefault();
+  const usernameInput = document.getElementById("newUserUsername");
+  const passwordInput = document.getElementById("newUserPassword");
+  const roleInput = document.getElementById("newUserRole");
+  const username = usernameInput.value.trim();
+  const password = passwordInput.value;
+  if (!username || !password) {
+    showError("Benutzername und Passwort sind erforderlich.");
+    return;
+  }
+  try {
+    await apiPost("/api/users", {
+      username,
+      password,
+      role: roleInput.value,
+      permissions: collectPermissions("perm"),
+      is_active: true,
+    });
+    usernameInput.value = "";
+    passwordInput.value = "";
+    roleInput.value = "user";
+    applyPermissions("perm", {
+      view_dashboard: true,
+      add_clients: false,
+      delete_clients: false,
+      manage_users: false,
+      manage_alert_rules: false,
+      view_events: false,
+    });
+    applyRoleToPermissionForm("perm", "user");
+    await loadUsers();
+    showError("");
+  } catch (error) {
+    showError(error.message);
+  }
+}
+
+async function updateUserFromForm(event) {
+  event.preventDefault();
+  const userId = Number(document.getElementById("editUserId").value || 0);
+  if (!userId) {
+    showEditUserHint("Ungültiger Benutzer.");
+    return;
+  }
+  const role = document.getElementById("editUserRole").value;
+  const password = document.getElementById("editUserPassword").value;
+  const payload = {
+    role,
+    permissions: collectPermissions("editPerm"),
+    is_active: document.getElementById("editUserActive").checked,
+  };
+  if (password.trim()) {
+    payload.password = password;
+  }
+  try {
+    await apiPatch(`/api/users/${userId}`, payload);
+    closeEditUserModal();
+    await loadUsers();
+    showError("");
+  } catch (error) {
+    showEditUserHint(`Speichern fehlgeschlagen: ${error.message}`);
+  }
+}
+
 function buildSetupCommandsWindows(serverOrigin, token) {
   return `powershell -NoProfile -ExecutionPolicy Bypass -Command "git clone ${REPOSITORY_URL}; cd projektwoche; powershell -ExecutionPolicy Bypass -File .\\client\\install_windows_background.ps1 -ServerUrl '${serverOrigin}' -ApiKey '${token}' -IntervalSeconds 60 -StartNow"`;
 }
@@ -636,14 +922,12 @@ async function copyTextToClipboard(text) {
 
 async function refreshAll() {
   showError("");
-  if (!currentApiKey) {
-    resetDetailView("Bitte API-Key setzen, um Client-Daten zu laden.");
-    openApiKeyModal("Bitte zuerst einen API-Key eingeben.");
-    return;
-  }
   const clients = await apiGet("/api/clients");
   renderClients(clients);
   await loadAlerts();
+  if (hasPermission("manage_users")) {
+    await loadUsers();
+  }
   if (selectedClientUid) {
     await loadClientDetails(selectedClientUid);
   } else if (clients.length > 0) {
@@ -654,34 +938,66 @@ async function refreshAll() {
   }
 }
 
-async function saveApiKeyFromModal() {
-  const input = document.getElementById("apiKeyModalInput");
-  const newKey = input.value.trim();
-  if (!newKey) {
-    showApiKeyHint("Bitte einen API-Key eingeben.");
+async function loadAuthContext() {
+  authContext = await apiGet("/api/me");
+  updateAuthUi();
+}
+
+async function initializeSession() {
+  if (!currentApiKey) {
+    showLoginScreen();
     return;
   }
-  setCurrentApiKey(newKey);
-  closeApiKeyModal();
-  showError("");
+  await loadAuthContext();
+  showDashboard();
   await refreshAll();
 }
 
-async function loginWithAdminPassword() {
-  const passwordInput = document.getElementById("adminPasswordInput");
-  const password = passwordInput.value;
-  if (!password) {
-    showApiKeyHint("Bitte ein Admin-Passwort eingeben.");
+async function forceLogout(message = "") {
+  setCurrentApiKey("", false);
+  authContext = null;
+  cachedUsers = [];
+  persistApiKey();
+  showLoginScreen();
+  updateAuthUi();
+  resetDetailView("Bitte anmelden, um Daten zu laden.");
+  showError("");
+  if (message) {
+    showLoginError(message);
+  }
+}
+
+async function handleLoginSubmit(event) {
+  event.preventDefault();
+  const username = document.getElementById("loginUsername").value.trim();
+  const password = document.getElementById("loginPassword").value;
+  if (!username || !password) {
+    showLoginError("Bitte Benutzername und Passwort eingeben.");
     return;
   }
-  const result = await apiPostPublic("/api/auth/login", { password });
-  if (!result.token) {
-    throw new Error("Login erfolgreich, aber kein Token zurückgegeben.");
+  try {
+    showLoginError("");
+    const result = await apiPostPublic("/api/auth/login", { username, password });
+    if (!result.token) {
+      throw new Error("Login erfolgreich, aber kein Token zurückgegeben.");
+    }
+    setCurrentApiKey(result.token);
+    await initializeSession();
+    document.getElementById("loginPassword").value = "";
+  } catch (error) {
+    showLoginError(`Login fehlgeschlagen: ${error.message}`);
   }
-  setCurrentApiKey(result.token);
-  closeApiKeyModal();
-  showError("");
-  await refreshAll();
+}
+
+async function handleLogout() {
+  if (currentApiKey) {
+    try {
+      await apiPost("/api/auth/logout", {});
+    } catch (_error) {
+      // Ignore logout API errors and clear local session anyway.
+    }
+  }
+  await forceLogout("Abgemeldet.");
 }
 
 document.getElementById("refreshBtn").addEventListener("click", async () => {
@@ -693,8 +1009,8 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
 });
 
 document.getElementById("openOnboardingBtn").addEventListener("click", async () => {
-  if (!currentApiKey) {
-    openApiKeyModal("Für das Onboarding wird ein API-Key benötigt.");
+  if (!hasPermission("add_clients")) {
+    showError("Keine Berechtigung zum Erstellen von Client-Tokens.");
     return;
   }
   openOnboardingModal();
@@ -708,6 +1024,20 @@ document.getElementById("openOnboardingBtn").addEventListener("click", async () 
   }
 });
 
+document.getElementById("createUserForm").addEventListener("submit", createUserFromForm);
+document.getElementById("editUserForm").addEventListener("submit", updateUserFromForm);
+document.getElementById("loginForm").addEventListener("submit", handleLoginSubmit);
+document.getElementById("logoutBtn").addEventListener("click", () => {
+  handleLogout().catch((error) => showError(error.message));
+});
+document.getElementById("newUserRole").addEventListener("change", (event) => {
+  applyRoleToPermissionForm("perm", event.target.value);
+});
+document.getElementById("editUserRole").addEventListener("change", (event) => {
+  applyRoleToPermissionForm("editPerm", event.target.value);
+});
+document.getElementById("closeEditUserModalBtn").addEventListener("click", closeEditUserModal);
+document.getElementById("cancelEditUserBtn").addEventListener("click", closeEditUserModal);
 document.getElementById("closeOnboardingBtn").addEventListener("click", closeOnboardingModal);
 document.getElementById("regenerateTokenBtn").addEventListener("click", async () => {
   try {
@@ -731,54 +1061,27 @@ document.getElementById("onboardingModal").addEventListener("click", (event) => 
     closeOnboardingModal();
   }
 });
+document.getElementById("editUserModal").addEventListener("click", (event) => {
+  if (event.target.id === "editUserModal") {
+    closeEditUserModal();
+  }
+});
 
-document.getElementById("openApiKeyModalBtn").addEventListener("click", () => openApiKeyModal(""));
-document.getElementById("closeApiKeyModalBtn").addEventListener("click", closeApiKeyModal);
-document.getElementById("cancelApiKeyBtn").addEventListener("click", closeApiKeyModal);
-document.getElementById("saveApiKeyBtn").addEventListener("click", async () => {
-  try {
-    await saveApiKeyFromModal();
-  } catch (error) {
-    showError(error.message);
-  }
+applyPermissions("perm", {
+  view_dashboard: true,
+  add_clients: false,
+  delete_clients: false,
+  manage_users: false,
+  manage_alert_rules: false,
+  view_events: false,
 });
-document.getElementById("loginWithPasswordBtn").addEventListener("click", async () => {
-  try {
-    await loginWithAdminPassword();
-  } catch (error) {
-    showApiKeyHint(`Login fehlgeschlagen: ${error.message}`);
-  }
-});
-document.getElementById("apiKeyModalInput").addEventListener("keydown", async (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    try {
-      await saveApiKeyFromModal();
-    } catch (error) {
-      showError(error.message);
-    }
-  }
-});
-document.getElementById("adminPasswordInput").addEventListener("keydown", async (event) => {
-  if (event.key === "Enter") {
-    event.preventDefault();
-    try {
-      await loginWithAdminPassword();
-    } catch (error) {
-      showApiKeyHint(`Login fehlgeschlagen: ${error.message}`);
-    }
-  }
-});
-document.getElementById("apiKeyModal").addEventListener("click", (event) => {
-  if (event.target.id === "apiKeyModal") {
-    closeApiKeyModal();
-  }
-});
+applyRoleToPermissionForm("perm", "user");
 
 loadSavedApiKey();
 if (currentApiKey) {
-  refreshAll().catch((error) => showError(error.message));
+  initializeSession().catch(async (_error) => {
+    await forceLogout("Gespeicherte Sitzung ist ungültig. Bitte erneut anmelden.");
+  });
 } else {
-  resetDetailView("Bitte API-Key setzen, um Daten zu laden.");
-  openApiKeyModal("Bitte API-Key eingeben.");
+  forceLogout("").catch(() => undefined);
 }
