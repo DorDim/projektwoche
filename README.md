@@ -12,6 +12,8 @@ Wichtige Funktionen:
 - **Auffälligkeitserkennung** (z. B. Temperatur, Speicher, Uptime-Reset)
 - **Ereignis- und Fehlerprotokollierung**
 - Frei konfigurierbare **Alarmregeln** mit visueller + akustischer Alarmausgabe
+- Erweiterte Sensorerkennung für **CPU-Temperatur** und **Lüfterdrehzahl** auf Linux/Windows (mehrere Fallbacks)
+- Sensor-Diagnose im Snapshot: **Quelle der Temperatur-/Lüfterwerte** wird mit gespeichert und angezeigt
 
 ---
 

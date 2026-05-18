@@ -3,6 +3,7 @@ let historyChart = null;
 let uptimeChart = null;
 let diskChart = null;
 let compareChart = null;
+let modalChart = null;
 let onboardingTokenValue = "";
 let currentApiKey = "";
 let authContext = null;
@@ -10,6 +11,8 @@ let cachedUsers = [];
 let alertSoundEnabled = true;
 let audioContext = null;
 let latestAlertTimestamp = null;
+let currentClientSnapshots = [];
+let currentClientLatestSnapshot = null;
 const currentPage = document.body?.dataset?.page || "dashboard";
 
 const REPOSITORY_URL = "https://github.com/DorDim/projektwoche.git";
@@ -196,6 +199,61 @@ function validatePasswordPolicy(password) {
     return "Passwort muss mindestens ein Sonderzeichen enthalten.";
   }
   return "";
+}
+
+function showToast(message, type = "info") {
+  const container = getEl("toastContainer");
+  if (!container) return;
+  const color =
+    type === "error"
+      ? "border-red-200 bg-red-50 text-red-700"
+      : type === "success"
+        ? "border-emerald-200 bg-emerald-50 text-emerald-700"
+        : "border-slate-200 bg-white text-slate-700";
+  const node = document.createElement("div");
+  node.className = `pointer-events-auto rounded-lg border px-3 py-2 text-xs shadow ${color}`;
+  node.textContent = message;
+  container.appendChild(node);
+  setTimeout(() => {
+    node.remove();
+  }, 3500);
+}
+
+function getTimeRangeValue() {
+  return getEl("timeRangeSelect")?.value || "24h";
+}
+
+function getTimeRangeHours() {
+  const raw = getTimeRangeValue();
+  if (raw === "all") return null;
+  const normalized = raw.endsWith("h") ? raw.slice(0, -1) : raw;
+  const parsed = Number(normalized);
+  if (!Number.isFinite(parsed) || parsed <= 0) return 24;
+  return parsed;
+}
+
+function filterSnapshotsByTimeRange(snapshots) {
+  if (!snapshots || snapshots.length === 0) return [];
+  const hours = getTimeRangeHours();
+  if (hours === null) return [...snapshots];
+  const threshold = Date.now() - hours * 3600 * 1000;
+  const filtered = snapshots.filter((snapshot) => new Date(snapshot.collected_at).getTime() >= threshold);
+  if (filtered.length > 0) return filtered;
+  return [snapshots[0]];
+}
+
+function sourceBadge(source) {
+  if (!source) {
+    return '<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">nicht verfügbar</span>';
+  }
+  const normalized = String(source).toLowerCase();
+  const qualityClass =
+    normalized.includes("psutil") || normalized.includes("lm-sensors")
+      ? "bg-emerald-100 text-emerald-700"
+      : normalized.includes("sysfs") || normalized.includes("wmi")
+        ? "bg-amber-100 text-amber-700"
+        : "bg-violet-100 text-violet-700";
+  return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${qualityClass}">${escapeHtml(source)}</span>`;
 }
 
 async function apiGet(path) {
@@ -474,6 +532,8 @@ function resetDetailView(message) {
     anomaliesBody.innerHTML =
       '<tr><td class="px-3 py-2 text-slate-500" colspan="5">Bitte Client auswählen</td></tr>';
   }
+  currentClientSnapshots = [];
+  currentClientLatestSnapshot = null;
   if (historyChart) historyChart.destroy();
   if (uptimeChart) uptimeChart.destroy();
   if (diskChart) diskChart.destroy();
@@ -482,9 +542,7 @@ function resetDetailView(message) {
   diskChart = null;
 }
 
-function renderResourceHistory(snapshots) {
-  const canvas = getEl("historyChart");
-  if (!canvas) return;
+function buildResourceHistoryChart(canvas, snapshots) {
   const ordered = [...snapshots].reverse();
   const labels = ordered.map((s) => new Date(s.collected_at).toLocaleTimeString());
   const diskFreeMin = ordered.map((s) =>
@@ -493,11 +551,7 @@ function renderResourceHistory(snapshots) {
       : null
   );
   const cpuTemp = ordered.map((s) => s.cpu_temperature_c);
-
-  if (historyChart) {
-    historyChart.destroy();
-  }
-  historyChart = new Chart(canvas, {
+  return new Chart(canvas, {
     type: "line",
     data: {
       labels,
@@ -526,19 +580,22 @@ function renderResourceHistory(snapshots) {
   });
 }
 
-function renderUptimeHistory(snapshots) {
-  const canvas = getEl("uptimeChart");
+function renderResourceHistory(snapshots) {
+  const canvas = getEl("historyChart");
   if (!canvas) return;
+  if (historyChart) {
+    historyChart.destroy();
+  }
+  historyChart = buildResourceHistoryChart(canvas, snapshots);
+}
+
+function buildUptimeChart(canvas, snapshots) {
   const ordered = [...snapshots].reverse();
   const labels = ordered.map((s) => new Date(s.collected_at).toLocaleTimeString());
   const uptimeHours = ordered.map((s) =>
     s.uptime_seconds === null || s.uptime_seconds === undefined ? null : s.uptime_seconds / 3600
   );
-
-  if (uptimeChart) {
-    uptimeChart.destroy();
-  }
-  uptimeChart = new Chart(canvas, {
+  return new Chart(canvas, {
     type: "line",
     data: {
       labels,
@@ -561,14 +618,18 @@ function renderUptimeHistory(snapshots) {
   });
 }
 
-function renderDiskUsageChart(snapshot) {
-  const canvas = getEl("diskChart");
+function renderUptimeHistory(snapshots) {
+  const canvas = getEl("uptimeChart");
   if (!canvas) return;
-  const disks = snapshot?.disks || [];
-  if (diskChart) {
-    diskChart.destroy();
+  if (uptimeChart) {
+    uptimeChart.destroy();
   }
-  diskChart = new Chart(canvas, {
+  uptimeChart = buildUptimeChart(canvas, snapshots);
+}
+
+function buildDiskUsageChart(canvas, snapshot) {
+  const disks = snapshot?.disks || [];
+  return new Chart(canvas, {
     type: "bar",
     data: {
       labels: disks.map((d) => d.mountpoint || "unbekannt"),
@@ -589,28 +650,42 @@ function renderDiskUsageChart(snapshot) {
   });
 }
 
+function renderDiskUsageChart(snapshot) {
+  const canvas = getEl("diskChart");
+  if (!canvas) return;
+  if (diskChart) {
+    diskChart.destroy();
+  }
+  diskChart = buildDiskUsageChart(canvas, snapshot);
+}
+
 function renderHardwareSummary(snapshot) {
   const container = getEl("hardwareSummaryCards");
   if (!container) return;
   const cards = [
-    ["Hostname", snapshot.hostname],
-    ["Betriebssystem", snapshot.os_version],
-    ["CPU Kerne / Threads", `${fmt(snapshot.cpu_cores, 0)} / ${fmt(snapshot.cpu_threads, 0)}`],
-    ["CPU Max-Takt (MHz)", fmt(snapshot.cpu_max_mhz, 2)],
-    ["RAM gesamt (MB)", fmt(snapshot.ram_total_mb, 0)],
-    ["Uptime", formatDuration(snapshot.uptime_seconds)],
-    ["CPU-Temperatur (°C)", fmt(snapshot.cpu_temperature_c, 1)],
-    ["Lüfter (RPM)", fmt(snapshot.fan_speed_rpm, 0)],
-    ["Mainboard", snapshot.motherboard_vendor],
-    ["BIOS/UEFI", snapshot.bios_vendor],
-    ["Erfasst am", new Date(snapshot.collected_at).toLocaleString()],
+    { label: "Hostname", value: escapeHtml(snapshot.hostname) },
+    { label: "Betriebssystem", value: escapeHtml(snapshot.os_version) },
+    {
+      label: "CPU Kerne / Threads",
+      value: escapeHtml(`${fmt(snapshot.cpu_cores, 0)} / ${fmt(snapshot.cpu_threads, 0)}`),
+    },
+    { label: "CPU Max-Takt (MHz)", value: escapeHtml(fmt(snapshot.cpu_max_mhz, 2)) },
+    { label: "RAM gesamt (MB)", value: escapeHtml(fmt(snapshot.ram_total_mb, 0)) },
+    { label: "Uptime", value: escapeHtml(formatDuration(snapshot.uptime_seconds)) },
+    { label: "CPU-Temperatur (°C)", value: escapeHtml(fmt(snapshot.cpu_temperature_c, 1)) },
+    { label: "Temp.-Quelle", value: sourceBadge(snapshot.cpu_temperature_source), isHtml: true },
+    { label: "Lüfter (RPM)", value: escapeHtml(fmt(snapshot.fan_speed_rpm, 0)) },
+    { label: "Lüfter-Quelle", value: sourceBadge(snapshot.fan_speed_source), isHtml: true },
+    { label: "Mainboard", value: escapeHtml(snapshot.motherboard_vendor) },
+    { label: "BIOS/UEFI", value: escapeHtml(snapshot.bios_vendor) },
+    { label: "Erfasst am", value: escapeHtml(new Date(snapshot.collected_at).toLocaleString()) },
   ];
   container.innerHTML = cards
     .map(
-      ([label, value]) => `
+      (card) => `
       <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
-        <div class="text-xs uppercase tracking-wide text-slate-500">${escapeHtml(label)}</div>
-        <div class="mt-1 text-sm font-semibold text-slate-800">${escapeHtml(value)}</div>
+        <div class="text-xs uppercase tracking-wide text-slate-500">${escapeHtml(card.label)}</div>
+        <div class="mt-1 text-sm font-semibold text-slate-800">${card.value}</div>
       </div>`
     )
     .join("");
@@ -738,6 +813,55 @@ function renderAnomalies(anomalies) {
     .join("");
 }
 
+function closeChartModal() {
+  const modal = getEl("chartModal");
+  if (!modal) return;
+  if (modalChart) {
+    modalChart.destroy();
+    modalChart = null;
+  }
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
+function openChartModal(chartType) {
+  const modal = getEl("chartModal");
+  const canvas = getEl("chartModalCanvas");
+  const title = getEl("chartModalTitle");
+  if (!modal || !canvas || !title) return;
+  const filtered = filterSnapshotsByTimeRange(currentClientSnapshots);
+  if (!filtered.length || !currentClientLatestSnapshot) {
+    showError("Keine Daten für die vergrößerte Ansicht vorhanden.");
+    return;
+  }
+  if (modalChart) {
+    modalChart.destroy();
+    modalChart = null;
+  }
+  if (chartType === "history") {
+    title.textContent = "Historie: Speicher & Temperatur";
+    modalChart = buildResourceHistoryChart(canvas, filtered);
+  } else if (chartType === "uptime") {
+    title.textContent = "Historie: Uptime";
+    modalChart = buildUptimeChart(canvas, filtered);
+  } else if (chartType === "disk") {
+    title.textContent = "Aktuelle Laufwerke";
+    modalChart = buildDiskUsageChart(canvas, currentClientLatestSnapshot);
+  } else {
+    return;
+  }
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function rerenderClientVisuals() {
+  if (!currentClientSnapshots.length || !currentClientLatestSnapshot) return;
+  const filteredSnapshots = filterSnapshotsByTimeRange(currentClientSnapshots);
+  renderResourceHistory(filteredSnapshots);
+  renderUptimeHistory(filteredSnapshots);
+  renderDiskUsageChart(currentClientLatestSnapshot);
+}
+
 function renderCompareVisuals(rows) {
   const cards = getEl("compareSummaryCards");
   const chartCanvas = getEl("compareChart");
@@ -822,22 +946,24 @@ function renderCompareVisuals(rows) {
 async function loadClientDetails(clientUid) {
   if (!getEl("detailsTitle")) return;
   const [snapshots, analytics, anomalies] = await Promise.all([
-    apiGet(`/api/clients/${clientUid}/snapshots?limit=100`),
+    apiGet(`/api/clients/${clientUid}/snapshots?limit=1000`),
     apiGet(`/api/clients/${clientUid}/analytics?limit=200`),
     apiGet(`/api/clients/${clientUid}/anomalies?limit=200`),
   ]);
   if (!snapshots || snapshots.length === 0) {
+    currentClientSnapshots = [];
+    currentClientLatestSnapshot = null;
     resetDetailView("Für diesen Client sind noch keine Snapshots vorhanden.");
     return;
   }
   const latest = snapshots[0];
+  currentClientSnapshots = snapshots;
+  currentClientLatestSnapshot = latest;
   getEl("detailsTitle").textContent = `Client-Details: ${latest.hostname} (${clientUid})`;
   renderHardwareDetails(latest);
   renderAnalytics(analytics);
   renderAnomalies(anomalies);
-  renderResourceHistory(snapshots);
-  renderUptimeHistory(snapshots);
-  renderDiskUsageChart(latest);
+  rerenderClientVisuals();
 }
 
 async function loadCompare() {
@@ -965,6 +1091,7 @@ function renderAlertRules(rules) {
         });
         await apiPatch(`/api/alert-rules/${ruleId}?${query.toString()}`, {});
         await loadAlertRules();
+        showToast("Alarmregel aktualisiert.", "success");
       } catch (error) {
         showError(error.message);
       }
@@ -1009,6 +1136,7 @@ async function createAlertRuleFromForm(event) {
     if (getEl("newRuleName")) getEl("newRuleName").value = "";
     if (getEl("newRuleThreshold")) getEl("newRuleThreshold").value = "";
     await loadAlertRules();
+    showToast("Alarmregel erstellt.", "success");
     showError("");
   } catch (error) {
     showError(error.message);
@@ -1077,6 +1205,7 @@ async function exportSelectedClient(format) {
   link.click();
   document.body.removeChild(link);
   URL.revokeObjectURL(downloadUrl);
+  showToast(`Export (${format.toUpperCase()}) gestartet.`, "success");
 }
 
 function permissionSummaryText(user) {
@@ -1523,6 +1652,20 @@ bindEvent("openOnboardingBtn", "click", async () => {
 });
 
 bindEvent("createAlertRuleForm", "submit", createAlertRuleFromForm);
+bindEvent("timeRangeSelect", "change", () => {
+  rerenderClientVisuals();
+});
+document.querySelectorAll("[data-open-chart-modal]").forEach((button) => {
+  button.addEventListener("click", () => {
+    openChartModal(button.dataset.openChartModal);
+  });
+});
+bindEvent("closeChartModalBtn", "click", closeChartModal);
+bindEvent("chartModal", "click", (event) => {
+  if (event.target.id === "chartModal") {
+    closeChartModal();
+  }
+});
 bindEvent("exportJsonBtn", "click", async () => {
   try {
     await exportSelectedClient("json");

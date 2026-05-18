@@ -333,32 +333,281 @@ def get_uptime_seconds() -> int:
     return int(time.time() - psutil.boot_time())
 
 
-def get_cpu_temperature() -> float | None:
+def _to_float(value) -> float | None:
+    try:
+        if value is None:
+            return None
+        if isinstance(value, str):
+            value = value.strip().replace(",", ".")
+            if not value:
+                return None
+        return float(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _to_int(value) -> int | None:
+    parsed = _to_float(value)
+    if parsed is None:
+        return None
+    return int(round(parsed))
+
+
+def _temperature_from_milli_celsius(raw_value: float | None) -> float | None:
+    if raw_value is None:
+        return None
+    if raw_value > 200:  # e.g. 42000 millidegrees
+        return round(raw_value / 1000, 2)
+    return round(raw_value, 2)
+
+
+def _temperature_from_tenths_kelvin(raw_value: float | None) -> float | None:
+    if raw_value is None:
+        return None
+    celsius = (raw_value / 10.0) - 273.15
+    if -40 <= celsius <= 160:
+        return round(celsius, 2)
+    return None
+
+
+def _valid_temperature_values(values: list[float | None]) -> list[float]:
+    return [round(value, 2) for value in values if value is not None and -40 <= value <= 160]
+
+
+def _extract_temperatures_from_sensor_json(data) -> list[float]:
+    temps: list[float] = []
+    if isinstance(data, dict):
+        for key, value in data.items():
+            lower_key = str(key).lower()
+            if lower_key.endswith("_input") and "temp" in lower_key:
+                parsed = _to_float(value)
+                if parsed is not None:
+                    if parsed > 200:
+                        parsed = parsed / 1000
+                    temps.append(parsed)
+            else:
+                temps.extend(_extract_temperatures_from_sensor_json(value))
+    elif isinstance(data, list):
+        for item in data:
+            temps.extend(_extract_temperatures_from_sensor_json(item))
+    return _valid_temperature_values(temps)
+
+
+def _extract_fans_from_sensor_json(data) -> list[int]:
+    fans: list[int] = []
+    if isinstance(data, dict):
+        for key, value in data.items():
+            lower_key = str(key).lower()
+            if lower_key.endswith("_input") and "fan" in lower_key:
+                parsed = _to_int(value)
+                if parsed is not None and parsed > 0:
+                    fans.append(parsed)
+            else:
+                fans.extend(_extract_fans_from_sensor_json(value))
+    elif isinstance(data, list):
+        for item in data:
+            fans.extend(_extract_fans_from_sensor_json(item))
+    return fans
+
+
+def _linux_cpu_temperature_from_sysfs() -> float | None:
+    candidates: list[float] = []
+
+    # Thermal zones expose various sensors, often CPU package values.
+    thermal_root = Path("/sys/class/thermal")
+    for zone in thermal_root.glob("thermal_zone*"):
+        temp_path = zone / "temp"
+        type_path = zone / "type"
+        temp_raw = _to_float(_read_text_file(temp_path))
+        temp_value = _temperature_from_milli_celsius(temp_raw)
+        if temp_value is None:
+            continue
+        zone_type = (_read_text_file(type_path) or "").lower()
+        if any(
+            marker in zone_type
+            for marker in ("cpu", "x86_pkg_temp", "package", "core", "tctl", "k10temp", "soc")
+        ):
+            candidates.append(temp_value)
+
+    hwmon_root = Path("/sys/class/hwmon")
+    fallback_candidates: list[float] = []
+    for hwmon in hwmon_root.glob("hwmon*"):
+        chip_name = (_read_text_file(hwmon / "name") or "").lower()
+        for temp_input in hwmon.glob("temp*_input"):
+            temp_raw = _to_float(_read_text_file(temp_input))
+            temp_value = _temperature_from_milli_celsius(temp_raw)
+            if temp_value is None:
+                continue
+            label_path = temp_input.with_name(temp_input.name.replace("_input", "_label"))
+            label = (_read_text_file(label_path) or "").lower()
+            if any(
+                marker in f"{chip_name} {label}"
+                for marker in ("cpu", "package", "core", "tctl", "k10temp", "soc")
+            ):
+                candidates.append(temp_value)
+            else:
+                fallback_candidates.append(temp_value)
+
+    all_values = _valid_temperature_values(candidates or fallback_candidates)
+    if all_values:
+        return max(all_values)
+    return None
+
+
+def _linux_fan_speed_from_sysfs() -> int | None:
+    speeds: list[int] = []
+    for hwmon in Path("/sys/class/hwmon").glob("hwmon*"):
+        for fan_input in hwmon.glob("fan*_input"):
+            value = _to_int(_read_text_file(fan_input))
+            if value is not None and value > 0:
+                speeds.append(value)
+    if speeds:
+        return max(speeds)
+    return None
+
+
+def _windows_open_hardware_sensor_values(sensor_type: str) -> tuple[list[float], str | None]:
+    values: list[float] = []
+    source: str | None = None
+    for namespace in ("root/OpenHardwareMonitor", "root/LibreHardwareMonitor"):
+        raw = _run_powershell(
+            (
+                f"Get-CimInstance -Namespace '{namespace}' -ClassName Sensor "
+                f"| Where-Object {{$_.SensorType -eq '{sensor_type}'}} "
+                "| Select-Object Name,Value | ConvertTo-Json -Compress"
+            )
+        )
+        for record in _parse_json_output(raw):
+            value = _to_float(record.get("Value"))
+            if value is not None:
+                values.append(value)
+        if values:
+            source = f"windows-open-hardware:{namespace}"
+            return values, source
+    return values, source
+
+
+def _windows_cpu_temperature_fallback() -> tuple[float | None, str | None]:
+    # ACPI values are typically in tenth Kelvin.
+    acpi_output = _run_powershell(
+        "Get-CimInstance -Namespace root/wmi -ClassName MSAcpi_ThermalZoneTemperature "
+        "| Select-Object CurrentTemperature | ConvertTo-Json -Compress"
+    )
+    acpi_values = [
+        _temperature_from_tenths_kelvin(_to_float(record.get("CurrentTemperature")))
+        for record in _parse_json_output(acpi_output)
+    ]
+    valid_acpi = _valid_temperature_values(acpi_values)
+    if valid_acpi:
+        return max(valid_acpi), "windows-wmi-acpi"
+
+    ohm_values, ohm_source = _windows_open_hardware_sensor_values("Temperature")
+    valid_ohm = _valid_temperature_values([_to_float(value) for value in ohm_values])
+    if valid_ohm:
+        return max(valid_ohm), ohm_source
+
+    return None, None
+
+
+def _windows_fan_speed_fallback() -> tuple[int | None, str | None]:
+    speeds: list[int] = []
+
+    wmi_output = _run_powershell(
+        "Get-CimInstance Win32_Fan | Select-Object DesiredSpeed,VariableSpeed | ConvertTo-Json -Compress"
+    )
+    for record in _parse_json_output(wmi_output):
+        desired = _to_int(record.get("DesiredSpeed"))
+        if desired is not None and desired > 0:
+            speeds.append(desired)
+
+    if speeds:
+        return max(speeds), "windows-wmi-win32_fan"
+
+    ohm_values, ohm_source = _windows_open_hardware_sensor_values("Fan")
+    ohm_speeds = [_to_int(value) for value in ohm_values]
+    valid = [value for value in ohm_speeds if value is not None and value > 0]
+    if valid:
+        return max(valid), ohm_source
+
+    return None, None
+
+
+def get_cpu_temperature_with_source() -> tuple[float | None, str | None]:
     try:
         temperatures = psutil.sensors_temperatures()
     except (AttributeError, OSError):
-        return None
+        temperatures = {}
     for entries in temperatures.values():
         for entry in entries:
             if entry.current is not None:
-                return float(entry.current)
-    return None
+                current = _to_float(entry.current)
+                if current is not None:
+                    return round(current, 2), "psutil-sensors_temperatures"
+
+    if platform.system().lower() == "windows":
+        return _windows_cpu_temperature_fallback()
+
+    sensors_output = _run_command(["sensors", "-j"])
+    if sensors_output:
+        try:
+            parsed = json.loads(sensors_output)
+        except json.JSONDecodeError:
+            parsed = None
+        sensor_temps = _extract_temperatures_from_sensor_json(parsed)
+        if sensor_temps:
+            return max(sensor_temps), "linux-lm-sensors"
+
+    sysfs_temp = _linux_cpu_temperature_from_sysfs()
+    if sysfs_temp is not None:
+        return sysfs_temp, "linux-sysfs"
+    return None, None
 
 
-def get_fan_speed() -> int | None:
+def get_fan_speed_with_source() -> tuple[int | None, str | None]:
     try:
         fans = psutil.sensors_fans()
     except (AttributeError, OSError):
-        return None
+        fans = {}
     for entries in fans.values():
         for entry in entries:
             if entry.current is not None:
-                return int(entry.current)
-    return None
+                current = _to_int(entry.current)
+                if current is not None and current > 0:
+                    return current, "psutil-sensors_fans"
+
+    if platform.system().lower() == "windows":
+        return _windows_fan_speed_fallback()
+
+    sensors_output = _run_command(["sensors", "-j"])
+    if sensors_output:
+        try:
+            parsed = json.loads(sensors_output)
+        except json.JSONDecodeError:
+            parsed = None
+        fan_values = _extract_fans_from_sensor_json(parsed)
+        if fan_values:
+            return max(fan_values), "linux-lm-sensors"
+
+    sysfs_fan = _linux_fan_speed_from_sysfs()
+    if sysfs_fan is not None:
+        return sysfs_fan, "linux-sysfs"
+    return None, None
+
+
+def get_cpu_temperature() -> float | None:
+    value, _ = get_cpu_temperature_with_source()
+    return value
+
+
+def get_fan_speed() -> int | None:
+    value, _ = get_fan_speed_with_source()
+    return value
 
 
 def collect_snapshot() -> dict:
     cpu_info = get_cpu_info()
+    cpu_temperature_c, cpu_temperature_source = get_cpu_temperature_with_source()
+    fan_speed_rpm, fan_speed_source = get_fan_speed_with_source()
     return {
         "hostname": get_hostname(),
         "os_version": get_windows_version(),
@@ -373,6 +622,8 @@ def collect_snapshot() -> dict:
         "disks": get_disks(),
         "network_adapters": get_network_adapters(),
         "uptime_seconds": get_uptime_seconds(),
-        "cpu_temperature_c": get_cpu_temperature(),
-        "fan_speed_rpm": get_fan_speed(),
+        "cpu_temperature_c": cpu_temperature_c,
+        "cpu_temperature_source": cpu_temperature_source,
+        "fan_speed_rpm": fan_speed_rpm,
+        "fan_speed_source": fan_speed_source,
     }

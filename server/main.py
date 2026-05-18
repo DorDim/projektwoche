@@ -336,6 +336,7 @@ def snapshot_summary(snapshot: HardwareSnapshot | None) -> ClientSnapshotSummary
 
 
 def to_snapshot_out(snapshot: HardwareSnapshot) -> SnapshotOut:
+    raw_payload = snapshot.raw_payload if isinstance(snapshot.raw_payload, dict) else {}
     return SnapshotOut(
         id=snapshot.id,
         collected_at=snapshot.collected_at,
@@ -352,7 +353,9 @@ def to_snapshot_out(snapshot: HardwareSnapshot) -> SnapshotOut:
         network_adapters=snapshot.network_adapters or [],
         uptime_seconds=snapshot.uptime_seconds,
         cpu_temperature_c=snapshot.cpu_temperature_c,
+        cpu_temperature_source=raw_payload.get("cpu_temperature_source"),
         fan_speed_rpm=snapshot.fan_speed_rpm,
+        fan_speed_source=raw_payload.get("fan_speed_source"),
     )
 
 
@@ -363,6 +366,7 @@ def snapshot_min_disk_free(snapshot: HardwareSnapshot) -> float | None:
 def build_snapshot_export_rows(client: Client, snapshots: list[HardwareSnapshot]) -> list[dict]:
     rows: list[dict] = []
     for snapshot in snapshots:
+        raw_payload = snapshot.raw_payload if isinstance(snapshot.raw_payload, dict) else {}
         rows.append(
             {
                 "client_uid": client.client_uid,
@@ -374,7 +378,9 @@ def build_snapshot_export_rows(client: Client, snapshots: list[HardwareSnapshot]
                 "cpu_max_mhz": snapshot.cpu_max_mhz,
                 "ram_total_mb": snapshot.ram_total_mb,
                 "cpu_temperature_c": snapshot.cpu_temperature_c,
+                "cpu_temperature_source": raw_payload.get("cpu_temperature_source"),
                 "fan_speed_rpm": snapshot.fan_speed_rpm,
+                "fan_speed_source": raw_payload.get("fan_speed_source"),
                 "uptime_seconds": snapshot.uptime_seconds,
                 "motherboard_vendor": snapshot.motherboard_vendor,
                 "bios_vendor": snapshot.bios_vendor,
@@ -947,7 +953,9 @@ def export_client_data(
             "cpu_max_mhz",
             "ram_total_mb",
             "cpu_temperature_c",
+            "cpu_temperature_source",
             "fan_speed_rpm",
+            "fan_speed_source",
             "uptime_seconds",
             "motherboard_vendor",
             "bios_vendor",
@@ -986,7 +994,8 @@ def export_client_data(
             6,
             (
                 f"{row['collected_at']} | CPU Threads: {row['cpu_threads']} | RAM: {row['ram_total_mb']} MB | "
-                f"Disk frei min: {row['min_disk_free_percent']}% | Temp: {row['cpu_temperature_c']}"
+                f"Disk frei min: {row['min_disk_free_percent']}% | Temp: {row['cpu_temperature_c']} ({row.get('cpu_temperature_source')}) | "
+                f"Fan: {row.get('fan_speed_rpm')} ({row.get('fan_speed_source')})"
             ),
         )
     pdf_bytes = pdf.output(dest="S")

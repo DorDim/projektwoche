@@ -58,7 +58,9 @@ class HardwareSnapshotIn(BaseModel):
     network_adapters: list[NetworkAdapter] = Field(default_factory=list)
     uptime_seconds: int | None = None
     cpu_temperature_c: float | None = None
+    cpu_temperature_source: str | None = None
     fan_speed_rpm: int | None = None
+    fan_speed_source: str | None = None
 
 
 class AlertRuleIn(BaseModel):
@@ -120,7 +122,9 @@ class SnapshotOut(BaseModel):
     network_adapters: list[NetworkAdapter]
     uptime_seconds: int | None
     cpu_temperature_c: float | None
+    cpu_temperature_source: str | None = None
     fan_speed_rpm: int | None
+    fan_speed_source: str | None = None
 
 
 class CompareClientRow(BaseModel):
