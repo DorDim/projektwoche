@@ -3,53 +3,27 @@ services:
     image: traefik:v3.1
     container_name: hardware-monitor-traefik
     restart: unless-stopped
-    depends_on:
-      server:
-        condition: service_started
+    environment:
+      DOCKER_HOST: unix:///var/run/docker.sock
+      DOCKER_API_VERSION: ${TRAEFIK_DOCKER_API_VERSION:-1.41}
+      DOCKER_TLS_VERIFY: ""
+      DOCKER_CERT_PATH: ""
     command:
-      - /bin/sh
-      - -ec
-      - |
-        cat > /etc/traefik/dynamic.yml <<EOF
-        http:
-          routers:
-            hardware-monitor-http:
-              entryPoints:
-                - web
-              rule: "Host(\`${TRAEFIK_DOMAIN}\`)"
-              middlewares:
-                - hardware-monitor-https-redirect
-              service: hardware-monitor
-            hardware-monitor:
-              entryPoints:
-                - websecure
-              rule: "Host(\`${TRAEFIK_DOMAIN}\`)"
-              tls:
-                certResolver: letsencrypt
-              service: hardware-monitor
-          middlewares:
-            hardware-monitor-https-redirect:
-              redirectScheme:
-                scheme: https
-          services:
-            hardware-monitor:
-              loadBalancer:
-                servers:
-                  - url: "http://server:8000"
-        EOF
-        exec traefik \
-          --providers.file.filename=/etc/traefik/dynamic.yml \
-          --providers.file.watch=true \
-          --entrypoints.web.address=:80 \
-          --entrypoints.websecure.address=:443 \
-          --certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL} \
-          --certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json \
-          --certificatesresolvers.letsencrypt.acme.httpchallenge=true \
-          --certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web
+      - "--providers.docker=true"
+      - "--providers.docker.endpoint=unix:///var/run/docker.sock"
+      - "--providers.docker.exposedbydefault=false"
+      - "--providers.docker.network=monitor-net"
+      - "--entrypoints.web.address=:80"
+      - "--entrypoints.websecure.address=:443"
+      - "--certificatesresolvers.letsencrypt.acme.email=${TRAEFIK_ACME_EMAIL}"
+      - "--certificatesresolvers.letsencrypt.acme.storage=/letsencrypt/acme.json"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge=true"
+      - "--certificatesresolvers.letsencrypt.acme.httpchallenge.entrypoint=web"
     ports:
       - "80:80"
       - "443:443"
     volumes:
+      - /var/run/docker.sock:/var/run/docker.sock:ro
       - letsencrypt_data:/letsencrypt
     networks:
       - monitor-net
@@ -92,6 +66,18 @@ services:
       DB_SSLMODE: ${DB_SSLMODE:-}
     expose:
       - "8000"
+    labels:
+      - "traefik.enable=true"
+      - "traefik.docker.network=monitor-net"
+      - "traefik.http.routers.hardware-monitor-http.rule=Host(`${TRAEFIK_DOMAIN}`)"
+      - "traefik.http.routers.hardware-monitor-http.entrypoints=web"
+      - "traefik.http.routers.hardware-monitor-http.middlewares=hardware-monitor-https-redirect"
+      - "traefik.http.middlewares.hardware-monitor-https-redirect.redirectscheme.scheme=https"
+      - "traefik.http.routers.hardware-monitor.rule=Host(`${TRAEFIK_DOMAIN}`)"
+      - "traefik.http.routers.hardware-monitor.entrypoints=websecure"
+      - "traefik.http.routers.hardware-monitor.tls=true"
+      - "traefik.http.routers.hardware-monitor.tls.certresolver=letsencrypt"
+      - "traefik.http.services.hardware-monitor.loadbalancer.server.port=8000"
     healthcheck:
       test:
         [
