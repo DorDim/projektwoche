@@ -7,6 +7,7 @@ let onboardingTokenValue = "";
 let currentApiKey = "";
 let authContext = null;
 let cachedUsers = [];
+const currentPage = document.body?.dataset?.page || "dashboard";
 
 const REPOSITORY_URL = "https://github.com/DorDim/projektwoche.git";
 const API_KEY_STORAGE_KEY = "hardware-monitor-auth-token";
@@ -18,6 +19,35 @@ const PERMISSION_FIELDS = [
   ["manage_alert_rules", "ManageAlertRules"],
   ["view_events", "ViewEvents"],
 ];
+
+function getEl(id) {
+  return document.getElementById(id);
+}
+
+function bindEvent(id, eventName, handler) {
+  const element = getEl(id);
+  if (!element) return;
+  element.addEventListener(eventName, handler);
+}
+
+function markActiveNavigation() {
+  const linkMap = {
+    dashboard: "navDashboardLink",
+    compare: "navCompareLink",
+    users: "navUsersLink",
+  };
+  Object.values(linkMap).forEach((id) => {
+    const link = getEl(id);
+    if (!link) return;
+    link.classList.remove("bg-blue-100", "text-blue-800");
+    link.classList.add("text-slate-600");
+  });
+  const activeLink = getEl(linkMap[currentPage]);
+  if (activeLink) {
+    activeLink.classList.remove("text-slate-600");
+    activeLink.classList.add("bg-blue-100", "text-blue-800");
+  }
+}
 
 function headers() {
   return { "X-API-Key": currentApiKey };
@@ -62,28 +92,32 @@ function setPermissionControlsDisabled(prefix, isDisabled) {
 }
 
 function updateAuthUi() {
-  const state = document.getElementById("authState");
+  const state = getEl("authState");
+  if (!state) return;
   const username = authContext?.username || "-";
   const role = authContext?.role || "-";
   state.textContent = `${username} (${role})`;
-  document.getElementById("openOnboardingBtn").classList.toggle("hidden", !hasPermission("add_clients"));
-  document.getElementById("userManagementSection").classList.toggle("hidden", !hasPermission("manage_users"));
+  getEl("openOnboardingBtn")?.classList.toggle("hidden", !hasPermission("add_clients"));
+  getEl("userManagementSection")?.classList.toggle("hidden", !hasPermission("manage_users"));
+  getEl("navCompareLink")?.classList.toggle("hidden", !hasPermission("view_dashboard"));
+  getEl("navUsersLink")?.classList.toggle("hidden", !hasPermission("manage_users"));
 }
 
 function showLoginScreen() {
-  document.getElementById("dashboardApp").classList.add("hidden");
-  document.getElementById("loginScreen").classList.remove("hidden");
-  document.getElementById("loginScreen").classList.add("flex");
+  getEl("dashboardApp")?.classList.add("hidden");
+  getEl("loginScreen")?.classList.remove("hidden");
+  getEl("loginScreen")?.classList.add("flex");
 }
 
 function showDashboard() {
-  document.getElementById("loginScreen").classList.add("hidden");
-  document.getElementById("loginScreen").classList.remove("flex");
-  document.getElementById("dashboardApp").classList.remove("hidden");
+  getEl("loginScreen")?.classList.add("hidden");
+  getEl("loginScreen")?.classList.remove("flex");
+  getEl("dashboardApp")?.classList.remove("hidden");
 }
 
 function showLoginError(message = "") {
-  const hint = document.getElementById("loginError");
+  const hint = getEl("loginError");
+  if (!hint) return;
   if (!message) {
     hint.classList.add("hidden");
     hint.textContent = "";
@@ -227,7 +261,8 @@ async function apiPostPublic(path, payload) {
 }
 
 function showError(message) {
-  const banner = document.getElementById("errorBanner");
+  const banner = getEl("errorBanner");
+  if (!banner) return;
   if (!message) {
     banner.classList.add("hidden");
     banner.textContent = "";
@@ -238,7 +273,8 @@ function showError(message) {
 }
 
 function showOnboardingStatus(message, isError = false) {
-  const statusBox = document.getElementById("onboardingStatus");
+  const statusBox = getEl("onboardingStatus");
+  if (!statusBox) return;
   statusBox.textContent = message;
   statusBox.className = `rounded-md border px-3 py-2 text-xs ${
     isError
@@ -250,16 +286,22 @@ function showOnboardingStatus(message, isError = false) {
 
 function renderClients(clients) {
   const tbody = document.querySelector("#clientsTable tbody");
+  if (!tbody) return;
   tbody.innerHTML = "";
-  const canDeleteClients = hasPermission("delete_clients");
+  const canDeleteClients = hasPermission("delete_clients") && currentPage === "dashboard";
+  const hasDetailsView = Boolean(getEl("detailsTitle"));
+  const enableCompareSelection = Boolean(document.querySelector("#compareTable tbody"));
 
   clients.forEach((client) => {
     const tr = document.createElement("tr");
     tr.className = "cursor-pointer hover:bg-slate-50";
     const statusClass = client.status === "online" ? "text-emerald-700" : "text-red-700";
     const statusDotClass = client.status === "online" ? "bg-emerald-500" : "bg-red-500";
+    const selectCell = enableCompareSelection
+      ? `<input type="checkbox" data-uid="${escapeHtml(client.client_uid)}" class="compare-check" />`
+      : "-";
     tr.innerHTML = `
-      <td class="px-3 py-2"><input type="checkbox" data-uid="${escapeHtml(client.client_uid)}" class="compare-check" /></td>
+      <td class="px-3 py-2">${selectCell}</td>
       <td class="px-3 py-2">${escapeHtml(client.hostname)}</td>
       <td class="px-3 py-2 font-mono text-xs">${escapeHtml(client.client_uid)}</td>
       <td class="px-3 py-2 ${statusClass}">
@@ -287,17 +329,22 @@ function renderClients(clients) {
       if (event.target && event.target.dataset && event.target.dataset.deleteClient) {
         return;
       }
+      if (!hasDetailsView) {
+        return;
+      }
       selectedClientUid = client.client_uid;
       loadClientDetails(client.client_uid).catch((error) => showError(error.message));
     });
     tbody.appendChild(tr);
   });
 
-  document.querySelectorAll(".compare-check").forEach((checkbox) => {
-    checkbox.addEventListener("change", () => {
-      loadCompare().catch((error) => showError(error.message));
+  if (enableCompareSelection) {
+    document.querySelectorAll(".compare-check").forEach((checkbox) => {
+      checkbox.addEventListener("change", () => {
+        loadCompare().catch((error) => showError(error.message));
+      });
     });
-  });
+  }
   document.querySelectorAll("[data-delete-client]").forEach((button) => {
     button.addEventListener("click", async (event) => {
       event.preventDefault();
@@ -320,15 +367,23 @@ function renderClients(clients) {
 }
 
 function resetDetailView(message) {
-  document.getElementById("detailsTitle").textContent = "Client-Details";
-  document.getElementById("hardwareSummaryCards").innerHTML = `
+  const detailsTitle = getEl("detailsTitle");
+  const summaryCards = getEl("hardwareSummaryCards");
+  const diskDetailsBody = getEl("diskDetailsBody");
+  const adapterDetailsBody = getEl("adapterDetailsBody");
+  const gpuDetailsBody = getEl("gpuDetailsBody");
+  if (!detailsTitle || !summaryCards || !diskDetailsBody || !adapterDetailsBody || !gpuDetailsBody) {
+    return;
+  }
+  detailsTitle.textContent = "Client-Details";
+  summaryCards.innerHTML = `
     <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
       ${escapeHtml(message)}
     </div>
   `;
-  document.getElementById("diskDetailsBody").innerHTML = "";
-  document.getElementById("adapterDetailsBody").innerHTML = "";
-  document.getElementById("gpuDetailsBody").innerHTML = "";
+  diskDetailsBody.innerHTML = "";
+  adapterDetailsBody.innerHTML = "";
+  gpuDetailsBody.innerHTML = "";
   if (historyChart) historyChart.destroy();
   if (uptimeChart) uptimeChart.destroy();
   if (diskChart) diskChart.destroy();
@@ -338,6 +393,8 @@ function resetDetailView(message) {
 }
 
 function renderResourceHistory(snapshots) {
+  const canvas = getEl("historyChart");
+  if (!canvas) return;
   const ordered = [...snapshots].reverse();
   const labels = ordered.map((s) => new Date(s.collected_at).toLocaleTimeString());
   const diskFreeMin = ordered.map((s) =>
@@ -350,7 +407,7 @@ function renderResourceHistory(snapshots) {
   if (historyChart) {
     historyChart.destroy();
   }
-  historyChart = new Chart(document.getElementById("historyChart"), {
+  historyChart = new Chart(canvas, {
     type: "line",
     data: {
       labels,
@@ -380,6 +437,8 @@ function renderResourceHistory(snapshots) {
 }
 
 function renderUptimeHistory(snapshots) {
+  const canvas = getEl("uptimeChart");
+  if (!canvas) return;
   const ordered = [...snapshots].reverse();
   const labels = ordered.map((s) => new Date(s.collected_at).toLocaleTimeString());
   const uptimeHours = ordered.map((s) =>
@@ -389,7 +448,7 @@ function renderUptimeHistory(snapshots) {
   if (uptimeChart) {
     uptimeChart.destroy();
   }
-  uptimeChart = new Chart(document.getElementById("uptimeChart"), {
+  uptimeChart = new Chart(canvas, {
     type: "line",
     data: {
       labels,
@@ -413,11 +472,13 @@ function renderUptimeHistory(snapshots) {
 }
 
 function renderDiskUsageChart(snapshot) {
+  const canvas = getEl("diskChart");
+  if (!canvas) return;
   const disks = snapshot?.disks || [];
   if (diskChart) {
     diskChart.destroy();
   }
-  diskChart = new Chart(document.getElementById("diskChart"), {
+  diskChart = new Chart(canvas, {
     type: "bar",
     data: {
       labels: disks.map((d) => d.mountpoint || "unbekannt"),
@@ -439,6 +500,8 @@ function renderDiskUsageChart(snapshot) {
 }
 
 function renderHardwareSummary(snapshot) {
+  const container = getEl("hardwareSummaryCards");
+  if (!container) return;
   const cards = [
     ["Hostname", snapshot.hostname],
     ["Betriebssystem", snapshot.os_version],
@@ -452,7 +515,7 @@ function renderHardwareSummary(snapshot) {
     ["BIOS/UEFI", snapshot.bios_vendor],
     ["Erfasst am", new Date(snapshot.collected_at).toLocaleString()],
   ];
-  document.getElementById("hardwareSummaryCards").innerHTML = cards
+  container.innerHTML = cards
     .map(
       ([label, value]) => `
       <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
@@ -464,7 +527,8 @@ function renderHardwareSummary(snapshot) {
 }
 
 function renderDiskDetails(disks) {
-  const body = document.getElementById("diskDetailsBody");
+  const body = getEl("diskDetailsBody");
+  if (!body) return;
   if (!disks || disks.length === 0) {
     body.innerHTML =
       '<tr><td class="px-3 py-2 text-slate-500" colspan="4">Keine Laufwerksdaten vorhanden</td></tr>';
@@ -484,7 +548,8 @@ function renderDiskDetails(disks) {
 }
 
 function renderAdapterDetails(adapters) {
-  const body = document.getElementById("adapterDetailsBody");
+  const body = getEl("adapterDetailsBody");
+  if (!body) return;
   if (!adapters || adapters.length === 0) {
     body.innerHTML =
       '<tr><td class="px-3 py-2 text-slate-500" colspan="3">Keine Netzwerkdaten vorhanden</td></tr>';
@@ -503,7 +568,8 @@ function renderAdapterDetails(adapters) {
 }
 
 function renderGpuDetails(gpus) {
-  const body = document.getElementById("gpuDetailsBody");
+  const body = getEl("gpuDetailsBody");
+  if (!body) return;
   if (!gpus || gpus.length === 0) {
     body.innerHTML = '<tr><td class="px-3 py-2 text-slate-500" colspan="3">Keine GPU-Daten vorhanden</td></tr>';
     return;
@@ -528,7 +594,9 @@ function renderHardwareDetails(snapshot) {
 }
 
 function renderCompareVisuals(rows) {
-  const cards = document.getElementById("compareSummaryCards");
+  const cards = getEl("compareSummaryCards");
+  const chartCanvas = getEl("compareChart");
+  if (!cards || !chartCanvas) return;
   if (!rows || rows.length === 0) {
     cards.innerHTML = `
       <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
@@ -577,7 +645,7 @@ function renderCompareVisuals(rows) {
   if (compareChart) {
     compareChart.destroy();
   }
-  compareChart = new Chart(document.getElementById("compareChart"), {
+  compareChart = new Chart(chartCanvas, {
     type: "bar",
     data: {
       labels: rows.map((row) => row.hostname),
@@ -607,13 +675,14 @@ function renderCompareVisuals(rows) {
 }
 
 async function loadClientDetails(clientUid) {
+  if (!getEl("detailsTitle")) return;
   const snapshots = await apiGet(`/api/clients/${clientUid}/snapshots?limit=100`);
   if (!snapshots || snapshots.length === 0) {
     resetDetailView("Für diesen Client sind noch keine Snapshots vorhanden.");
     return;
   }
   const latest = snapshots[0];
-  document.getElementById("detailsTitle").textContent = `Client-Details: ${latest.hostname} (${clientUid})`;
+  getEl("detailsTitle").textContent = `Client-Details: ${latest.hostname} (${clientUid})`;
   renderHardwareDetails(latest);
   renderResourceHistory(snapshots);
   renderUptimeHistory(snapshots);
@@ -623,6 +692,7 @@ async function loadClientDetails(clientUid) {
 async function loadCompare() {
   const checked = [...document.querySelectorAll(".compare-check:checked")].map((el) => el.dataset.uid);
   const tbody = document.querySelector("#compareTable tbody");
+  if (!tbody) return;
   tbody.innerHTML = "";
   if (checked.length === 0) {
     renderCompareVisuals([]);
@@ -657,8 +727,9 @@ async function loadCompare() {
 }
 
 async function loadAlerts() {
-  const alerts = await apiGet("/api/alerts?limit=100");
   const tbody = document.querySelector("#alertsTable tbody");
+  if (!tbody) return;
+  const alerts = await apiGet("/api/alerts?limit=100");
   tbody.innerHTML = "";
   alerts.forEach((alert) => {
     const tr = document.createElement("tr");
@@ -784,6 +855,9 @@ function renderUsers(users) {
 }
 
 async function loadUsers() {
+  if (!document.querySelector("#usersTable tbody")) {
+    return;
+  }
   if (!hasPermission("manage_users")) {
     return;
   }
@@ -865,13 +939,15 @@ function buildSetupCommandsLinux(serverOrigin, token) {
 }
 
 function openOnboardingModal() {
-  const modal = document.getElementById("onboardingModal");
+  const modal = getEl("onboardingModal");
+  if (!modal) return;
   modal.classList.remove("hidden");
   modal.classList.add("flex");
 }
 
 function closeOnboardingModal() {
-  const modal = document.getElementById("onboardingModal");
+  const modal = getEl("onboardingModal");
+  if (!modal) return;
   modal.classList.add("hidden");
   modal.classList.remove("flex");
 }
@@ -879,14 +955,22 @@ function closeOnboardingModal() {
 async function generateOnboardingToken() {
   const tokenPayload = await apiPost("/api/onboarding-tokens", {});
   onboardingTokenValue = tokenPayload.token;
-  document.getElementById("generatedToken").value = tokenPayload.token;
-  document.getElementById("serverOriginValue").textContent = tokenPayload.server_origin;
-  document.getElementById("serverHostValue").textContent = tokenPayload.server_host;
-  document.getElementById("setupCommandsWindows").textContent = buildSetupCommandsWindows(
+  const generatedToken = getEl("generatedToken");
+  const serverOrigin = getEl("serverOriginValue");
+  const serverHost = getEl("serverHostValue");
+  const setupWindows = getEl("setupCommandsWindows");
+  const setupLinux = getEl("setupCommandsLinux");
+  if (!generatedToken || !serverOrigin || !serverHost || !setupWindows || !setupLinux) {
+    return;
+  }
+  generatedToken.value = tokenPayload.token;
+  serverOrigin.textContent = tokenPayload.server_origin;
+  serverHost.textContent = tokenPayload.server_host;
+  setupWindows.textContent = buildSetupCommandsWindows(
     tokenPayload.server_origin,
     tokenPayload.token
   );
-  document.getElementById("setupCommandsLinux").textContent = buildSetupCommandsLinux(
+  setupLinux.textContent = buildSetupCommandsLinux(
     tokenPayload.server_origin,
     tokenPayload.token
   );
@@ -922,19 +1006,45 @@ async function copyTextToClipboard(text) {
 
 async function refreshAll() {
   showError("");
-  const clients = await apiGet("/api/clients");
-  renderClients(clients);
-  await loadAlerts();
+  const hasClientsTable = Boolean(document.querySelector("#clientsTable tbody"));
+  const hasCompareTable = Boolean(document.querySelector("#compareTable tbody"));
+  const hasDetails = Boolean(getEl("detailsTitle"));
+  const hasAlerts = Boolean(document.querySelector("#alertsTable tbody"));
+  const hasUsersTable = Boolean(document.querySelector("#usersTable tbody"));
+  const needsClientData = hasClientsTable || hasCompareTable || hasDetails || hasAlerts;
+
+  let clients = [];
+  if (needsClientData) {
+    if (!hasPermission("view_dashboard")) {
+      throw new Error("Keine Berechtigung für Dashboard-/Vergleichsdaten.");
+    }
+    clients = await apiGet("/api/clients");
+    if (hasClientsTable) {
+      renderClients(clients);
+    }
+  }
+
+  if (hasAlerts) {
+    await loadAlerts();
+  }
+
   if (hasPermission("manage_users")) {
     await loadUsers();
+  } else if (hasUsersTable) {
+    showError("Keine Berechtigung für die Nutzerverwaltung.");
   }
-  if (selectedClientUid) {
-    await loadClientDetails(selectedClientUid);
-  } else if (clients.length > 0) {
-    selectedClientUid = clients[0].client_uid;
-    await loadClientDetails(selectedClientUid);
+
+  if (hasDetails) {
+    if (selectedClientUid) {
+      await loadClientDetails(selectedClientUid);
+    } else if (clients.length > 0) {
+      selectedClientUid = clients[0].client_uid;
+      await loadClientDetails(selectedClientUid);
+    } else {
+      resetDetailView("Noch keine Client-Daten vorhanden");
+    }
   } else {
-    resetDetailView("Noch keine Client-Daten vorhanden");
+    selectedClientUid = null;
   }
 }
 
@@ -950,7 +1060,11 @@ async function initializeSession() {
   }
   await loadAuthContext();
   showDashboard();
-  await refreshAll();
+  try {
+    await refreshAll();
+  } catch (error) {
+    showError(error.message);
+  }
 }
 
 async function forceLogout(message = "") {
@@ -1000,7 +1114,7 @@ async function handleLogout() {
   await forceLogout("Abgemeldet.");
 }
 
-document.getElementById("refreshBtn").addEventListener("click", async () => {
+bindEvent("refreshBtn", "click", async () => {
   try {
     await refreshAll();
   } catch (error) {
@@ -1008,7 +1122,7 @@ document.getElementById("refreshBtn").addEventListener("click", async () => {
   }
 });
 
-document.getElementById("openOnboardingBtn").addEventListener("click", async () => {
+bindEvent("openOnboardingBtn", "click", async () => {
   if (!hasPermission("add_clients")) {
     showError("Keine Berechtigung zum Erstellen von Client-Tokens.");
     return;
@@ -1024,22 +1138,22 @@ document.getElementById("openOnboardingBtn").addEventListener("click", async () 
   }
 });
 
-document.getElementById("createUserForm").addEventListener("submit", createUserFromForm);
-document.getElementById("editUserForm").addEventListener("submit", updateUserFromForm);
-document.getElementById("loginForm").addEventListener("submit", handleLoginSubmit);
-document.getElementById("logoutBtn").addEventListener("click", () => {
+bindEvent("createUserForm", "submit", createUserFromForm);
+bindEvent("editUserForm", "submit", updateUserFromForm);
+bindEvent("loginForm", "submit", handleLoginSubmit);
+bindEvent("logoutBtn", "click", () => {
   handleLogout().catch((error) => showError(error.message));
 });
-document.getElementById("newUserRole").addEventListener("change", (event) => {
+bindEvent("newUserRole", "change", (event) => {
   applyRoleToPermissionForm("perm", event.target.value);
 });
-document.getElementById("editUserRole").addEventListener("change", (event) => {
+bindEvent("editUserRole", "change", (event) => {
   applyRoleToPermissionForm("editPerm", event.target.value);
 });
-document.getElementById("closeEditUserModalBtn").addEventListener("click", closeEditUserModal);
-document.getElementById("cancelEditUserBtn").addEventListener("click", closeEditUserModal);
-document.getElementById("closeOnboardingBtn").addEventListener("click", closeOnboardingModal);
-document.getElementById("regenerateTokenBtn").addEventListener("click", async () => {
+bindEvent("closeEditUserModalBtn", "click", closeEditUserModal);
+bindEvent("cancelEditUserBtn", "click", closeEditUserModal);
+bindEvent("closeOnboardingBtn", "click", closeOnboardingModal);
+bindEvent("regenerateTokenBtn", "click", async () => {
   try {
     await generateOnboardingToken();
   } catch (error) {
@@ -1047,7 +1161,7 @@ document.getElementById("regenerateTokenBtn").addEventListener("click", async ()
   }
 });
 
-document.getElementById("copyTokenBtn").addEventListener("click", async () => {
+bindEvent("copyTokenBtn", "click", async () => {
   try {
     await copyTextToClipboard(onboardingTokenValue);
     showOnboardingStatus("Token wurde in die Zwischenablage kopiert.");
@@ -1056,12 +1170,12 @@ document.getElementById("copyTokenBtn").addEventListener("click", async () => {
   }
 });
 
-document.getElementById("onboardingModal").addEventListener("click", (event) => {
+bindEvent("onboardingModal", "click", (event) => {
   if (event.target.id === "onboardingModal") {
     closeOnboardingModal();
   }
 });
-document.getElementById("editUserModal").addEventListener("click", (event) => {
+bindEvent("editUserModal", "click", (event) => {
   if (event.target.id === "editUserModal") {
     closeEditUserModal();
   }
@@ -1076,6 +1190,7 @@ applyPermissions("perm", {
   view_events: false,
 });
 applyRoleToPermissionForm("perm", "user");
+markActiveNavigation();
 
 loadSavedApiKey();
 if (currentApiKey) {
