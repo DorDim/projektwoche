@@ -58,6 +58,91 @@ if ! command -v python3 >/dev/null 2>&1; then
   exit 1
 fi
 
+run_with_optional_sudo() {
+  if [[ "${EUID:-$(id -u)}" -eq 0 ]]; then
+    "$@"
+    return
+  fi
+  if command -v sudo >/dev/null 2>&1; then
+    sudo "$@"
+    return
+  fi
+  return 127
+}
+
+install_python_venv_support() {
+  local py_ver pkg update_cmd install_cmd
+  py_ver="$(python3 -c 'import sys; print(f"{sys.version_info.major}.{sys.version_info.minor}")')"
+  pkg="python${py_ver}-venv"
+
+  if command -v apt-get >/dev/null 2>&1; then
+    echo "Installiere fehlendes Paket für virtuelle Umgebungen (${pkg})..."
+    update_cmd=(apt-get update)
+    install_cmd=(apt-get install -y "${pkg}")
+    if ! run_with_optional_sudo "${update_cmd[@]}"; then
+      echo "Hinweis: apt-get update fehlgeschlagen. Versuche Installation direkt..." >&2
+    fi
+    if run_with_optional_sudo "${install_cmd[@]}"; then
+      return 0
+    fi
+    echo "Fallback: versuche python3-venv..."
+    run_with_optional_sudo apt-get install -y python3-venv
+    return $?
+  fi
+
+  if command -v dnf >/dev/null 2>&1; then
+    echo "Installiere python3-venv via dnf..."
+    run_with_optional_sudo dnf install -y python3-venv
+    return $?
+  fi
+
+  if command -v yum >/dev/null 2>&1; then
+    echo "Installiere python3-venv via yum..."
+    run_with_optional_sudo yum install -y python3-venv
+    return $?
+  fi
+
+  if command -v zypper >/dev/null 2>&1; then
+    echo "Installiere python3-venv via zypper..."
+    run_with_optional_sudo zypper --non-interactive install python3-venv
+    return $?
+  fi
+
+  if command -v pacman >/dev/null 2>&1; then
+    echo "Installiere python-virtualenv via pacman..."
+    run_with_optional_sudo pacman -Sy --noconfirm python-virtualenv
+    return $?
+  fi
+
+  echo "Konnte kein bekanntes Paketmanagement-System für die automatische Installation erkennen." >&2
+  return 1
+}
+
+create_or_fix_venv() {
+  local tmp_log
+  tmp_log="$(mktemp)"
+  if python3 -m venv "$VENV_DIR" >"$tmp_log" 2>&1; then
+    rm -f "$tmp_log"
+    return 0
+  fi
+
+  cat "$tmp_log" >&2
+  if grep -Eiq "ensurepip is not available|No module named ensurepip" "$tmp_log"; then
+    echo "python3-venv/ensurepip fehlt. Versuche automatische Installation..."
+    if install_python_venv_support; then
+      echo "Erneuter Versuch, virtuelle Umgebung zu erstellen..."
+      if python3 -m venv "$VENV_DIR"; then
+        rm -f "$tmp_log"
+        return 0
+      fi
+    fi
+    echo "Virtuelle Umgebung konnte nicht erstellt werden." >&2
+    echo "Bitte installiere manuell das venv-Paket (z. B. apt install python3-venv) und starte das Skript erneut." >&2
+  fi
+  rm -f "$tmp_log"
+  return 1
+}
+
 REPO_ROOT="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 VENV_DIR="$REPO_ROOT/.venv"
 VENV_PYTHON="$VENV_DIR/bin/python3"
@@ -66,7 +151,7 @@ RUNNER_SCRIPT="$REPO_ROOT/client/linux_agent_runner.sh"
 
 if [[ ! -x "$VENV_PYTHON" ]]; then
   echo "Erstelle virtuelle Umgebung..."
-  python3 -m venv "$VENV_DIR"
+  create_or_fix_venv
 fi
 
 echo "Installiere/aktualisiere Python-Abhängigkeiten..."
