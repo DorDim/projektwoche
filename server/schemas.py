@@ -133,6 +133,7 @@ class OnboardingTokenOut(BaseModel):
 
 
 class LoginRequest(BaseModel):
+    username: str
     password: str
 
 
@@ -140,10 +141,13 @@ class LoginResponse(BaseModel):
     token: str
     role: str
     token_name: str
+    username: str
 
 
 class AuthContextOut(BaseModel):
+    username: str
     role: str
+    permissions: dict[str, bool]
     token_name: str | None = None
 
 
@@ -176,3 +180,28 @@ class EventLogOut(BaseModel):
     message: str
     client_uid: str | None
     details: dict | None
+
+
+class UserCreateIn(BaseModel):
+    username: str
+    password: str
+    role: str = "user"
+    permissions: dict[str, bool] = Field(default_factory=dict)
+    is_active: bool = True
+
+
+class UserUpdateIn(BaseModel):
+    password: str | None = None
+    role: str | None = None
+    permissions: dict[str, bool] | None = None
+    is_active: bool | None = None
+
+
+class UserOut(BaseModel):
+    model_config = ConfigDict(from_attributes=True)
+    id: int
+    username: str
+    role: str
+    permissions: dict[str, bool] | None = None
+    is_active: bool
+    created_at: datetime
