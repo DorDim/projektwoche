@@ -3,6 +3,8 @@ services:
     image: traefik:v3.1
     container_name: hardware-monitor-traefik
     restart: unless-stopped
+    environment:
+      DOCKER_API_VERSION: ${TRAEFIK_DOCKER_API_VERSION:-1.41}
     command:
       - "--providers.docker=true"
       - "--providers.docker.exposedbydefault=false"
