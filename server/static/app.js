@@ -422,11 +422,14 @@ python -m venv .venv
 .\\.venv\\Scripts\\Activate.ps1
 pip install -r requirements.txt
 
-$env:SERVER_URL="${serverOrigin}"
-$env:SERVER_API_KEY="${token}"
-$env:AGENT_INTERVAL_SECONDS="60"
+powershell -ExecutionPolicy Bypass -File .\\client\\install_windows_background.ps1 `
+  -ServerUrl "${serverOrigin}" `
+  -ApiKey "${token}" `
+  -IntervalSeconds 60 `
+  -StartNow
 
-python -m client.agent`;
+# Optional prüfen:
+Get-ScheduledTask -TaskName "HardwareMonitorClientAgent"`;
 }
 
 function buildSetupCommandsLinux(serverOrigin, token) {

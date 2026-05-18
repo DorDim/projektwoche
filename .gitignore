@@ -5,3 +5,4 @@ hardware_monitor.db
 .client_id
 .env
 node_modules/
+client/windows_agent_config.json

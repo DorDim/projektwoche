@@ -26,6 +26,51 @@ def _run_command(command: list[str]) -> str | None:
     return output or None
 
 
+def _run_powershell(command: str) -> str | None:
+    return _run_command(
+        [
+            "powershell",
+            "-NoProfile",
+            "-ExecutionPolicy",
+            "Bypass",
+            "-Command",
+            command,
+        ]
+    )
+
+
+def _first_data_line(output: str | None, ignored_keywords: tuple[str, ...] = ()) -> str | None:
+    if not output:
+        return None
+    for line in output.splitlines():
+        value = line.strip()
+        if not value:
+            continue
+        lower_value = value.lower()
+        if any(keyword in lower_value for keyword in ignored_keywords):
+            continue
+        return value
+    return None
+
+
+def _normalize_vendor(value: str | None) -> str | None:
+    if not value:
+        return None
+    normalized = value.strip()
+    if not normalized:
+        return None
+    placeholder_values = {
+        "to be filled by o.e.m.",
+        "to be filled by oem",
+        "default string",
+        "system manufacturer",
+        "none",
+    }
+    if normalized.lower() in placeholder_values:
+        return None
+    return normalized
+
+
 def get_hostname() -> str:
     return socket.gethostname()
 
@@ -99,28 +144,35 @@ def _read_text_file(path: Path) -> str | None:
 def get_motherboard_vendor() -> str | None:
     if platform.system().lower() == "windows":
         output = _run_command(["wmic", "baseboard", "get", "Manufacturer"])
-        if output:
-            rows = [
-                line.strip()
-                for line in output.splitlines()
-                if line.strip() and "manufacturer" not in line.lower()
-            ]
-            return rows[0] if rows else None
-        return None
+        vendor = _normalize_vendor(_first_data_line(output, ignored_keywords=("manufacturer",)))
+        if vendor:
+            return vendor
+
+        output = _run_powershell(
+            "(Get-CimInstance Win32_BaseBoard | Select-Object -ExpandProperty Manufacturer | Select-Object -First 1)"
+        )
+        vendor = _normalize_vendor(_first_data_line(output))
+        if vendor:
+            return vendor
+
+        output = _run_powershell(
+            "(Get-CimInstance Win32_ComputerSystem | Select-Object -ExpandProperty Manufacturer | Select-Object -First 1)"
+        )
+        return _normalize_vendor(_first_data_line(output))
     return _read_text_file(Path("/sys/devices/virtual/dmi/id/board_vendor"))
 
 
 def get_bios_vendor() -> str | None:
     if platform.system().lower() == "windows":
         output = _run_command(["wmic", "bios", "get", "Manufacturer"])
-        if output:
-            rows = [
-                line.strip()
-                for line in output.splitlines()
-                if line.strip() and "manufacturer" not in line.lower()
-            ]
-            return rows[0] if rows else None
-        return None
+        vendor = _normalize_vendor(_first_data_line(output, ignored_keywords=("manufacturer",)))
+        if vendor:
+            return vendor
+
+        output = _run_powershell(
+            "(Get-CimInstance Win32_BIOS | Select-Object -ExpandProperty Manufacturer | Select-Object -First 1)"
+        )
+        return _normalize_vendor(_first_data_line(output))
     return _read_text_file(Path("/sys/devices/virtual/dmi/id/bios_vendor"))
 
 

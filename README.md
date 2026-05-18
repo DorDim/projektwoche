@@ -118,6 +118,37 @@ export AGENT_INTERVAL_SECONDS=60
 python -m client.agent
 ```
 
+## Client-Agent im Hintergrund (Windows, empfohlen)
+
+Der Agent kann als geplanter Task laufen, damit kein Terminal offen bleiben muss.
+
+```powershell
+git clone https://github.com/DorDim/projektwoche.git
+cd projektwoche
+
+python -m venv .venv
+.\.venv\Scripts\Activate.ps1
+pip install -r requirements.txt
+
+powershell -ExecutionPolicy Bypass -File .\client\install_windows_background.ps1 `
+  -ServerUrl "http://DEIN-SERVER:8000" `
+  -ApiKey "DEIN_TOKEN_ODER_SERVER_API_KEY" `
+  -IntervalSeconds 60 `
+  -StartNow
+```
+
+Task prüfen:
+
+```powershell
+Get-ScheduledTask -TaskName "HardwareMonitorClientAgent"
+```
+
+Task entfernen:
+
+```powershell
+Unregister-ScheduledTask -TaskName "HardwareMonitorClientAgent" -Confirm:$false
+```
+
 ## Wichtige Umgebungsvariablen
 
 - `SERVER_API_KEY`: Admin-API-Key für Server/Client-Kommunikation
@@ -175,3 +206,8 @@ docker compose up -d --build server
 - Klare Trennung von Client und Server
 - SQL-basierte Persistenz und erweiterbares Datenmodell
 - Mehrere Clients können parallel Daten senden
+
+## Hinweis zu Mainboard-/BIOS-Hersteller
+
+Auf Windows nutzt der Client mehrere Wege (WMIC und PowerShell/CIM-Fallback), um Mainboard- und BIOS-Hersteller zu lesen.
+Falls ein Hersteller dennoch leer bleibt, liefert die Firmware des Geräts häufig nur Platzhalterwerte.
