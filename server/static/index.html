@@ -272,6 +272,7 @@
                   <tr>
                     <th class="px-3 py-2 text-left font-semibold text-slate-600">Benutzer</th>
                     <th class="px-3 py-2 text-left font-semibold text-slate-600">Rolle</th>
+                    <th class="px-3 py-2 text-left font-semibold text-slate-600">Rechte</th>
                     <th class="px-3 py-2 text-left font-semibold text-slate-600">Aktiv</th>
                     <th class="px-3 py-2 text-left font-semibold text-slate-600">Aktionen</th>
                   </tr>
@@ -283,6 +284,72 @@
         </div>
       </section>
     </main>
+    </div>
+
+    <div
+      id="editUserModal"
+      class="fixed inset-0 z-50 hidden items-center justify-center bg-slate-900/60 p-4"
+      aria-hidden="true"
+    >
+      <div class="w-full max-w-xl rounded-xl bg-white shadow-2xl">
+        <div class="flex items-start justify-between border-b border-slate-200 px-5 py-4">
+          <div>
+            <h2 class="text-xl font-semibold">Benutzer bearbeiten</h2>
+            <p class="text-sm text-slate-500">Rolle, Rechte, Aktiv-Status und optional Passwort ändern</p>
+          </div>
+          <button id="closeEditUserModalBtn" class="rounded-md px-2 py-1 text-slate-500 hover:bg-slate-100">✕</button>
+        </div>
+        <form id="editUserForm" class="space-y-3 px-5 py-4 text-sm">
+          <input id="editUserId" type="hidden" />
+          <label class="block">
+            Benutzername
+            <input id="editUserUsername" readonly class="mt-1 w-full rounded-md border border-slate-300 bg-slate-50 px-3 py-2" />
+          </label>
+          <label class="block">
+            Neues Passwort (optional)
+            <input
+              id="editUserPassword"
+              type="password"
+              placeholder="Leer lassen, um Passwort unverändert zu lassen"
+              class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2"
+            />
+          </label>
+          <div class="grid gap-3 sm:grid-cols-2">
+            <label class="block">
+              Rolle
+              <select id="editUserRole" class="mt-1 w-full rounded-md border border-slate-300 px-3 py-2">
+                <option value="user">User</option>
+                <option value="admin">Admin</option>
+              </select>
+            </label>
+            <label class="mt-7 inline-flex items-center gap-2">
+              <input id="editUserActive" type="checkbox" />
+              Aktiv
+            </label>
+          </div>
+          <div class="grid gap-2 rounded-md border border-slate-200 bg-slate-50 p-3 sm:grid-cols-2">
+            <label><input type="checkbox" id="editPermViewDashboard" /> Dashboard ansehen</label>
+            <label><input type="checkbox" id="editPermAddClients" /> Clients hinzufügen</label>
+            <label><input type="checkbox" id="editPermDeleteClients" /> Clients löschen</label>
+            <label><input type="checkbox" id="editPermManageUsers" /> Nutzer verwalten</label>
+            <label><input type="checkbox" id="editPermManageAlertRules" /> Alert-Regeln verwalten</label>
+            <label><input type="checkbox" id="editPermViewEvents" /> Events ansehen</label>
+          </div>
+          <p id="editUserHint" class="hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"></p>
+          <div class="flex justify-end gap-2">
+            <button
+              id="cancelEditUserBtn"
+              type="button"
+              class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 hover:bg-slate-50"
+            >
+              Abbrechen
+            </button>
+            <button type="submit" class="rounded-lg bg-indigo-600 px-4 py-2 text-sm font-medium text-white hover:bg-indigo-700">
+              Änderungen speichern
+            </button>
+          </div>
+        </form>
+      </div>
     </div>
 
     <div

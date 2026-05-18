@@ -6,9 +6,18 @@ let compareChart = null;
 let onboardingTokenValue = "";
 let currentApiKey = "";
 let authContext = null;
+let cachedUsers = [];
 
 const REPOSITORY_URL = "https://github.com/DorDim/projektwoche.git";
 const API_KEY_STORAGE_KEY = "hardware-monitor-auth-token";
+const PERMISSION_FIELDS = [
+  ["view_dashboard", "ViewDashboard"],
+  ["add_clients", "AddClients"],
+  ["delete_clients", "DeleteClients"],
+  ["manage_users", "ManageUsers"],
+  ["manage_alert_rules", "ManageAlertRules"],
+  ["view_events", "ViewEvents"],
+];
 
 function headers() {
   return { "X-API-Key": currentApiKey };
@@ -25,6 +34,31 @@ function hasPermission(permissionName) {
   if (!authContext) return false;
   if (authContext.role === "admin") return true;
   return Boolean(authContext.permissions && authContext.permissions[permissionName]);
+}
+
+function collectPermissions(prefix) {
+  const permissions = {};
+  PERMISSION_FIELDS.forEach(([permissionKey, fieldSuffix]) => {
+    const checkbox = document.getElementById(`${prefix}${fieldSuffix}`);
+    permissions[permissionKey] = Boolean(checkbox?.checked);
+  });
+  return permissions;
+}
+
+function applyPermissions(prefix, permissions) {
+  PERMISSION_FIELDS.forEach(([permissionKey, fieldSuffix]) => {
+    const checkbox = document.getElementById(`${prefix}${fieldSuffix}`);
+    if (!checkbox) return;
+    checkbox.checked = Boolean(permissions && permissions[permissionKey]);
+  });
+}
+
+function setPermissionControlsDisabled(prefix, isDisabled) {
+  PERMISSION_FIELDS.forEach(([_permissionKey, fieldSuffix]) => {
+    const checkbox = document.getElementById(`${prefix}${fieldSuffix}`);
+    if (!checkbox) return;
+    checkbox.disabled = isDisabled;
+  });
 }
 
 function updateAuthUi() {
@@ -140,6 +174,25 @@ async function apiPost(path, payload = {}) {
   if (response.status === 204) {
     return null;
   }
+  return response.json();
+}
+
+async function apiPatch(path, payload = {}) {
+  if (!currentApiKey) {
+    throw new Error("Nicht angemeldet.");
+  }
+  const response = await fetch(path, {
+    method: "PATCH",
+    headers: { ...headers(), "Content-Type": "application/json" },
+    body: JSON.stringify(payload),
+  });
+  if (!response.ok) {
+    if (response.status === 401) {
+      await forceLogout("Sitzung abgelaufen. Bitte erneut anmelden.");
+    }
+    throw new Error(`HTTP ${response.status}: ${await response.text()}`);
+  }
+  if (response.status === 204) return null;
   return response.json();
 }
 
@@ -620,18 +673,78 @@ async function loadAlerts() {
   });
 }
 
-function collectUserPermissionsFromForm() {
-  return {
-    view_dashboard: document.getElementById("permViewDashboard").checked,
-    add_clients: document.getElementById("permAddClients").checked,
-    delete_clients: document.getElementById("permDeleteClients").checked,
-    manage_users: document.getElementById("permManageUsers").checked,
-    manage_alert_rules: document.getElementById("permManageAlertRules").checked,
-    view_events: document.getElementById("permViewEvents").checked,
+function permissionSummaryText(user) {
+  if (user.role === "admin") {
+    return "Alle";
+  }
+  const labels = {
+    view_dashboard: "Dashboard",
+    add_clients: "Clients+",
+    delete_clients: "Clients-",
+    manage_users: "Nutzer",
+    manage_alert_rules: "Alerts",
+    view_events: "Events",
   };
+  const active = Object.entries(user.permissions || {})
+    .filter(([, enabled]) => Boolean(enabled))
+    .map(([key]) => labels[key] || key);
+  return active.length > 0 ? active.join(", ") : "Keine";
+}
+
+function showEditUserHint(message = "") {
+  const hint = document.getElementById("editUserHint");
+  if (!message) {
+    hint.textContent = "";
+    hint.classList.add("hidden");
+    return;
+  }
+  hint.textContent = message;
+  hint.classList.remove("hidden");
+}
+
+function applyRoleToPermissionForm(prefix, roleValue) {
+  const isAdmin = roleValue === "admin";
+  if (isAdmin) {
+    applyPermissions(prefix, {
+      view_dashboard: true,
+      add_clients: true,
+      delete_clients: true,
+      manage_users: true,
+      manage_alert_rules: true,
+      view_events: true,
+    });
+  }
+  setPermissionControlsDisabled(prefix, isAdmin);
+}
+
+function openEditUserModal(userId) {
+  const user = cachedUsers.find((entry) => entry.id === Number(userId));
+  if (!user) {
+    showError("Benutzer nicht gefunden.");
+    return;
+  }
+  document.getElementById("editUserId").value = String(user.id);
+  document.getElementById("editUserUsername").value = user.username;
+  document.getElementById("editUserPassword").value = "";
+  document.getElementById("editUserRole").value = user.role;
+  document.getElementById("editUserActive").checked = Boolean(user.is_active);
+  applyPermissions("editPerm", user.permissions || {});
+  applyRoleToPermissionForm("editPerm", user.role);
+  showEditUserHint("");
+  const modal = document.getElementById("editUserModal");
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeEditUserModal() {
+  const modal = document.getElementById("editUserModal");
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+  showEditUserHint("");
 }
 
 function renderUsers(users) {
+  cachedUsers = users;
   const tbody = document.querySelector("#usersTable tbody");
   tbody.innerHTML = "";
   users.forEach((user) => {
@@ -639,12 +752,21 @@ function renderUsers(users) {
     tr.innerHTML = `
       <td class="px-3 py-2 font-medium">${escapeHtml(user.username)}</td>
       <td class="px-3 py-2">${escapeHtml(user.role)}</td>
+      <td class="px-3 py-2 text-xs">${escapeHtml(permissionSummaryText(user))}</td>
       <td class="px-3 py-2">${user.is_active ? "Ja" : "Nein"}</td>
-      <td class="px-3 py-2">
+      <td class="px-3 py-2 space-x-2">
+        <button data-edit-user="${user.id}" class="rounded border border-indigo-300 px-2 py-1 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">Bearbeiten</button>
         <button data-delete-user="${user.id}" class="rounded border border-red-300 px-2 py-1 text-xs font-semibold text-red-700 hover:bg-red-50">Löschen</button>
       </td>
     `;
     tbody.appendChild(tr);
+  });
+  document.querySelectorAll("[data-edit-user]").forEach((button) => {
+    button.addEventListener("click", () => {
+      const userId = button.dataset.editUser;
+      if (!userId) return;
+      openEditUserModal(userId);
+    });
   });
   document.querySelectorAll("[data-delete-user]").forEach((button) => {
     button.addEventListener("click", async () => {
@@ -685,15 +807,52 @@ async function createUserFromForm(event) {
       username,
       password,
       role: roleInput.value,
-      permissions: collectUserPermissionsFromForm(),
+      permissions: collectPermissions("perm"),
       is_active: true,
     });
     usernameInput.value = "";
     passwordInput.value = "";
+    roleInput.value = "user";
+    applyPermissions("perm", {
+      view_dashboard: true,
+      add_clients: false,
+      delete_clients: false,
+      manage_users: false,
+      manage_alert_rules: false,
+      view_events: false,
+    });
+    applyRoleToPermissionForm("perm", "user");
     await loadUsers();
     showError("");
   } catch (error) {
     showError(error.message);
+  }
+}
+
+async function updateUserFromForm(event) {
+  event.preventDefault();
+  const userId = Number(document.getElementById("editUserId").value || 0);
+  if (!userId) {
+    showEditUserHint("Ungültiger Benutzer.");
+    return;
+  }
+  const role = document.getElementById("editUserRole").value;
+  const password = document.getElementById("editUserPassword").value;
+  const payload = {
+    role,
+    permissions: collectPermissions("editPerm"),
+    is_active: document.getElementById("editUserActive").checked,
+  };
+  if (password.trim()) {
+    payload.password = password;
+  }
+  try {
+    await apiPatch(`/api/users/${userId}`, payload);
+    closeEditUserModal();
+    await loadUsers();
+    showError("");
+  } catch (error) {
+    showEditUserHint(`Speichern fehlgeschlagen: ${error.message}`);
   }
 }
 
@@ -797,6 +956,7 @@ async function initializeSession() {
 async function forceLogout(message = "") {
   setCurrentApiKey("", false);
   authContext = null;
+  cachedUsers = [];
   persistApiKey();
   showLoginScreen();
   updateAuthUi();
@@ -865,10 +1025,19 @@ document.getElementById("openOnboardingBtn").addEventListener("click", async () 
 });
 
 document.getElementById("createUserForm").addEventListener("submit", createUserFromForm);
+document.getElementById("editUserForm").addEventListener("submit", updateUserFromForm);
 document.getElementById("loginForm").addEventListener("submit", handleLoginSubmit);
 document.getElementById("logoutBtn").addEventListener("click", () => {
   handleLogout().catch((error) => showError(error.message));
 });
+document.getElementById("newUserRole").addEventListener("change", (event) => {
+  applyRoleToPermissionForm("perm", event.target.value);
+});
+document.getElementById("editUserRole").addEventListener("change", (event) => {
+  applyRoleToPermissionForm("editPerm", event.target.value);
+});
+document.getElementById("closeEditUserModalBtn").addEventListener("click", closeEditUserModal);
+document.getElementById("cancelEditUserBtn").addEventListener("click", closeEditUserModal);
 document.getElementById("closeOnboardingBtn").addEventListener("click", closeOnboardingModal);
 document.getElementById("regenerateTokenBtn").addEventListener("click", async () => {
   try {
@@ -892,6 +1061,21 @@ document.getElementById("onboardingModal").addEventListener("click", (event) => 
     closeOnboardingModal();
   }
 });
+document.getElementById("editUserModal").addEventListener("click", (event) => {
+  if (event.target.id === "editUserModal") {
+    closeEditUserModal();
+  }
+});
+
+applyPermissions("perm", {
+  view_dashboard: true,
+  add_clients: false,
+  delete_clients: false,
+  manage_users: false,
+  manage_alert_rules: false,
+  view_events: false,
+});
+applyRoleToPermissionForm("perm", "user");
 
 loadSavedApiKey();
 if (currentApiKey) {
