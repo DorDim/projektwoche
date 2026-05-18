@@ -1,6 +1,7 @@
 let selectedClientUid = null;
 let historyChart = null;
 let onboardingTokenValue = "";
+const REPOSITORY_URL = "https://github.com/DorDim/projektwoche.git";
 
 function headers() {
   const apiKey = document.getElementById("apiKey").value;
@@ -191,7 +192,10 @@ async function loadAlerts() {
 }
 
 function buildSetupCommandsWindows(serverOrigin, token) {
-  return `python -m venv .venv
+  return `git clone ${REPOSITORY_URL}
+cd projektwoche
+
+python -m venv .venv
 .\\.venv\\Scripts\\Activate.ps1
 pip install -r requirements.txt
 
@@ -203,7 +207,10 @@ python -m client.agent`;
 }
 
 function buildSetupCommandsLinux(serverOrigin, token) {
-  return `python3 -m venv .venv
+  return `git clone ${REPOSITORY_URL}
+cd projektwoche
+
+python3 -m venv .venv
 source .venv/bin/activate
 pip install -r requirements.txt
 
@@ -241,6 +248,33 @@ async function generateOnboardingToken() {
     tokenPayload.token
   );
   showOnboardingStatus("Neuer Client-Token wurde erfolgreich generiert.");
+}
+
+function fallbackCopyText(text) {
+  const textArea = document.createElement("textarea");
+  textArea.value = text;
+  textArea.setAttribute("readonly", "");
+  textArea.style.position = "absolute";
+  textArea.style.left = "-9999px";
+  document.body.appendChild(textArea);
+  textArea.select();
+  const wasCopied = document.execCommand("copy");
+  document.body.removeChild(textArea);
+  return wasCopied;
+}
+
+async function copyTextToClipboard(text) {
+  if (!text) {
+    throw new Error("Kein Token vorhanden.");
+  }
+  if (navigator.clipboard && typeof navigator.clipboard.writeText === "function") {
+    await navigator.clipboard.writeText(text);
+    return;
+  }
+  const wasCopied = fallbackCopyText(text);
+  if (!wasCopied) {
+    throw new Error("Zwischenablage wird vom Browser nicht unterstützt.");
+  }
 }
 
 async function refreshAll() {
@@ -289,7 +323,7 @@ document.getElementById("regenerateTokenBtn").addEventListener("click", async ()
 
 document.getElementById("copyTokenBtn").addEventListener("click", async () => {
   try {
-    await navigator.clipboard.writeText(onboardingTokenValue);
+    await copyTextToClipboard(onboardingTokenValue);
     showOnboardingStatus("Token wurde in die Zwischenablage kopiert.");
   } catch (error) {
     showOnboardingStatus(`Kopieren fehlgeschlagen: ${error.message}`, true);
