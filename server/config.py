@@ -7,6 +7,7 @@ from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 class Settings:
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./hardware_monitor.db")
     api_key: str = os.getenv("SERVER_API_KEY", "change-me")
+    start_admin_password: str | None = os.getenv("START_ADMIN_PASSWORD")
     stale_after_seconds: int = int(os.getenv("STALE_AFTER_SECONDS", "180"))
     db_pool_size: int = int(os.getenv("DB_POOL_SIZE", "10"))
     db_max_overflow: int = int(os.getenv("DB_MAX_OVERFLOW", "20"))

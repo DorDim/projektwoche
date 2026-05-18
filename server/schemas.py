@@ -132,6 +132,16 @@ class OnboardingTokenOut(BaseModel):
     server_host: str
 
 
+class LoginRequest(BaseModel):
+    password: str
+
+
+class LoginResponse(BaseModel):
+    token: str
+    role: str
+    token_name: str
+
+
 class AuthContextOut(BaseModel):
     role: str
     token_name: str | None = None

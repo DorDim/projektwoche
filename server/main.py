@@ -31,6 +31,8 @@ from server.schemas import (
     CompareClientRow,
     EventLogOut,
     HardwareSnapshotIn,
+    LoginRequest,
+    LoginResponse,
     OnboardingTokenCreate,
     OnboardingTokenOut,
     RegisterClientRequest,
@@ -87,6 +89,13 @@ def log_event(
     )
 
 
+def create_admin_session_token(db: Session, token_name_prefix: str = "admin-session") -> tuple[str, str]:
+    raw_token = secrets.token_urlsafe(32)
+    token_name = f"{token_name_prefix}:{int(datetime.now(timezone.utc).timestamp())}"
+    db.add(ApiToken(name=token_name, token_hash=hash_token(raw_token), enabled=True))
+    return raw_token, token_name
+
+
 def resolve_auth_context(
     x_api_key: Annotated[str | None, Header()] = None,
     db: Session = Depends(get_db),
@@ -112,7 +121,8 @@ def resolve_auth_context(
         db.commit()
         raise HTTPException(status_code=401, detail="ungültiger API-Schlüssel")
 
-    return {"role": "user", "token_name": token.name}
+    role = "admin" if token.name.startswith("admin-session:") else "user"
+    return {"role": role, "token_name": token.name}
 
 
 def require_api_key(
@@ -350,6 +360,37 @@ def index():
 @app.get("/health")
 def health():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc)}
+
+
+@app.post("/api/auth/login", response_model=LoginResponse)
+def login(payload: LoginRequest, db: Session = Depends(get_db)):
+    configured_password = settings.start_admin_password
+    if not configured_password:
+        raise HTTPException(
+            status_code=503,
+            detail="START_ADMIN_PASSWORD ist nicht gesetzt. Login per Passwort ist deaktiviert.",
+        )
+
+    if not secrets.compare_digest(payload.password, configured_password):
+        log_event(
+            db,
+            level="warning",
+            event_type="admin_login_failed",
+            message="Fehlgeschlagener Admin-Login (Passwort ungültig).",
+        )
+        db.commit()
+        raise HTTPException(status_code=401, detail="Ungültiges Passwort")
+
+    token_value, token_name = create_admin_session_token(db)
+    log_event(
+        db,
+        level="info",
+        event_type="admin_login_success",
+        message="Admin-Login erfolgreich, Session-Token erstellt.",
+        details={"token_name": token_name},
+    )
+    db.commit()
+    return LoginResponse(token=token_value, role="admin", token_name=token_name)
 
 
 @api.get("/me", response_model=AuthContextOut)
