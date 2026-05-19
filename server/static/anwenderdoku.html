@@ -1,0 +1,195 @@
+<!DOCTYPE html>
+<html lang="de">
+  <head>
+    <meta charset="UTF-8" />
+    <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+    <title>Hardwareüberwachung – Anwenderdokumentation</title>
+    <link rel="stylesheet" href="/static/tailwind.css" />
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+  </head>
+  <body data-page="docs" class="min-h-screen bg-slate-100 text-slate-800">
+    <div id="loginScreen" class="flex min-h-screen items-center justify-center px-4">
+      <div class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow">
+        <h1 class="text-2xl font-bold">Hardwareüberwachung</h1>
+        <p class="mt-1 text-sm text-slate-500">Bitte anmelden, um die Anwenderdokumentation zu öffnen.</p>
+        <form id="loginForm" class="mt-6 space-y-4">
+          <label class="block text-sm font-medium text-slate-700">
+            Benutzername
+            <input
+              id="loginUsername"
+              type="text"
+              autocomplete="username"
+              required
+              class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </label>
+          <label class="block text-sm font-medium text-slate-700">
+            Passwort
+            <input
+              id="loginPassword"
+              type="password"
+              autocomplete="current-password"
+              required
+              class="mt-1 block w-full rounded-lg border border-slate-300 px-3 py-2 text-sm focus:border-blue-500 focus:outline-none focus:ring-2 focus:ring-blue-200"
+            />
+          </label>
+          <p id="loginError" class="hidden rounded-md border border-red-200 bg-red-50 px-3 py-2 text-xs text-red-700"></p>
+          <button type="submit" class="w-full rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white hover:bg-blue-700">
+            Anmelden
+          </button>
+        </form>
+      </div>
+    </div>
+
+    <div id="dashboardApp" class="hidden">
+      <header class="border-b border-slate-200 bg-white">
+        <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
+          <div>
+            <h1 class="text-2xl font-bold">Hardwareüberwachung</h1>
+            <p class="text-sm text-slate-500">Leicht verständliche Anwenderdokumentation</p>
+          </div>
+          <div class="flex flex-wrap items-end gap-3">
+            <nav class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm">
+              <a id="navDashboardLink" href="/" class="rounded px-3 py-1 text-slate-600">Dashboard</a>
+              <a id="navCompareLink" href="/compare" class="rounded px-3 py-1 text-slate-600">Vergleich</a>
+              <a id="navDocsLink" href="/anwenderdoku" class="rounded px-3 py-1 text-slate-600">Anwenderdoku</a>
+              <a id="navUsersLink" href="/users" class="rounded px-3 py-1 text-slate-600">Nutzer</a>
+            </nav>
+            <div class="min-w-52">
+              <div class="text-xs uppercase tracking-wide text-slate-500">Anmeldung</div>
+              <div id="authState" class="mt-1 text-sm font-medium text-emerald-700">Nicht angemeldet</div>
+            </div>
+            <button id="refreshBtn" class="rounded-lg bg-blue-600 px-4 py-2 text-sm font-medium text-white shadow hover:bg-blue-700">
+              Aktualisieren
+            </button>
+            <button
+              id="logoutBtn"
+              class="rounded-lg border border-slate-300 bg-white px-4 py-2 text-sm font-medium text-slate-700 shadow hover:bg-slate-50"
+            >
+              Abmelden
+            </button>
+          </div>
+        </div>
+      </header>
+
+      <main class="mx-auto grid w-full max-w-5xl gap-4 px-4 py-4">
+        <div id="errorBanner" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
+
+        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="text-xl font-semibold">Vorab: Login und Navigation</h2>
+          <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm">
+            <li>Weboberfläche öffnen und anmelden.</li>
+            <li>Oben über die Navigation zwischen Dashboard, Vergleich, Anwenderdoku und Nutzer wechseln.</li>
+            <li>Wenn ein Menüpunkt fehlt, fehlen wahrscheinlich passende Berechtigungen.</li>
+          </ol>
+        </section>
+
+        <section class="rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
+          <h2 class="text-xl font-semibold text-blue-900">Szenario 1: Admin richtet Benutzer ein</h2>
+          <div class="mt-3 grid gap-4 md:grid-cols-2">
+            <div>
+              <h3 class="font-semibold text-blue-900">Ziel</h3>
+              <p class="mt-1 text-sm text-blue-800">Benutzerkonten anlegen und Rechte sauber verteilen.</p>
+            </div>
+            <div>
+              <h3 class="font-semibold text-blue-900">Schritte</h3>
+              <ol class="mt-1 list-decimal space-y-1 pl-5 text-sm text-blue-800">
+                <li>Als Admin anmelden.</li>
+                <li>Seite <span class="font-medium">Nutzer</span> öffnen.</li>
+                <li>Benutzer erstellen und Rechte auswählen.</li>
+                <li>Test-Login mit dem neuen Benutzer durchführen.</li>
+              </ol>
+            </div>
+          </div>
+          <div class="mt-4 overflow-x-auto rounded-lg border border-blue-200 bg-white">
+            <table class="min-w-full divide-y divide-slate-200 text-sm">
+              <thead class="bg-slate-50">
+                <tr>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Recht</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Bedeutung</th>
+                </tr>
+              </thead>
+              <tbody class="divide-y divide-slate-100 bg-white">
+                <tr>
+                  <td class="px-3 py-2">Dashboard ansehen</td>
+                  <td class="px-3 py-2">Zugriff auf Dashboard und Vergleich.</td>
+                </tr>
+                <tr>
+                  <td class="px-3 py-2">Clients hinzufügen/löschen</td>
+                  <td class="px-3 py-2">Geräte Onboarding und Entfernen.</td>
+                </tr>
+                <tr>
+                  <td class="px-3 py-2">Nutzer verwalten</td>
+                  <td class="px-3 py-2">Benutzerkonten erstellen, ändern und deaktivieren.</td>
+                </tr>
+                <tr>
+                  <td class="px-3 py-2">Alert-Regeln verwalten</td>
+                  <td class="px-3 py-2">Grenzwerte für Warnungen konfigurieren.</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </section>
+
+        <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+          <h2 class="text-xl font-semibold text-emerald-900">Szenario 2: Neuen Client anbinden</h2>
+          <p class="mt-2 text-sm text-emerald-800">Voraussetzung: Recht <span class="font-medium">Clients hinzufügen</span>.</p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-emerald-900">
+            <li>Im Dashboard auf <span class="font-medium">Neuen Client hinzufügen</span> klicken.</li>
+            <li>Token kopieren.</li>
+            <li>Ein-Befehl für Windows oder Linux auf dem Zielsystem ausführen.</li>
+            <li>Auf <span class="font-medium">Aktualisieren</span> klicken und neuen Client prüfen.</li>
+          </ol>
+        </section>
+
+        <section class="rounded-xl border border-violet-200 bg-violet-50 p-5 shadow-sm">
+          <h2 class="text-xl font-semibold text-violet-900">Szenario 3: Tägliche Überwachung</h2>
+          <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-violet-900">
+            <li>Client auswählen.</li>
+            <li>Zeitspanne setzen (z. B. 1h, 24h, 7d).</li>
+            <li>Durchschnittswerte, Diagramme, Auffälligkeiten und Alerts prüfen.</li>
+            <li>Bei Laufwerken Gesamtgröße (GB), Frei (%) und Frei (GB) bewerten.</li>
+          </ol>
+        </section>
+
+        <section class="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <h2 class="text-xl font-semibold text-amber-900">Szenario 4: Vergleich und Export</h2>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div>
+              <h3 class="font-semibold text-amber-900">Vergleich</h3>
+              <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">
+                <li>Seite <span class="font-medium">Vergleich</span> öffnen.</li>
+                <li>Clients per Checkbox auswählen.</li>
+                <li>Vergleichstabelle und Diagramm auswerten.</li>
+              </ol>
+            </div>
+            <div>
+              <h3 class="font-semibold text-amber-900">Export</h3>
+              <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">
+                <li>Client im Dashboard auswählen.</li>
+                <li>Exportformat wählen: JSON, CSV oder PDF.</li>
+                <li>Datei speichern und weiterverwenden.</li>
+              </ol>
+            </div>
+          </div>
+        </section>
+
+        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="text-xl font-semibold">Besondere Hinweise und Troubleshooting</h2>
+          <ul class="mt-3 list-disc space-y-2 pl-5 text-sm">
+            <li>Demo-Daten sind nur mit dem Demo-Benutzer sichtbar.</li>
+            <li>Wenn keine Clients erscheinen: Aktualisieren, Agent prüfen, Rechte prüfen.</li>
+            <li>Wenn Login fehlschlägt: Benutzername/Passwort und Groß-/Kleinschreibung kontrollieren.</li>
+            <li>Wenn die Nutzer-Seite fehlt: Recht <span class="font-medium">Nutzer verwalten</span> fehlt.</li>
+          </ul>
+        </section>
+      </main>
+    </div>
+
+    <footer class="border-t border-slate-200 bg-white px-4 py-4 text-center text-xs text-slate-600">
+      Hierbei handelt es sich um ein Tool, was in Bezug auf eine Projektarbeit entstanden ist
+    </footer>
+
+    <script src="/static/app.js"></script>
+  </body>
+</html>
