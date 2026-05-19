@@ -1367,15 +1367,126 @@ def export_client_data(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"PDF-Export nicht verfügbar: {exc}") from exc
 
+    def pdf_value(value: object) -> str:
+        if value is None:
+            return "-"
+        if isinstance(value, float):
+            return f"{value:.2f}"
+        return str(value)
+
+    latest_snapshot = snapshots[0] if snapshots else None
+    latest_raw_payload = (
+        latest_snapshot.raw_payload
+        if latest_snapshot is not None and isinstance(latest_snapshot.raw_payload, dict)
+        else {}
+    )
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=10)
     pdf.add_page()
+    effective_width = getattr(pdf, "epw", 180)
+
     pdf.set_font("Helvetica", "B", 14)
     pdf.cell(0, 10, txt=f"Hardware-Export für {client.hostname} ({client_uid})", ln=True)
     pdf.set_font("Helvetica", size=9)
     pdf.cell(0, 8, txt=f"Snapshots: {len(rows)}", ln=True)
+    pdf.cell(0, 8, txt=f"Exportiert am: {utc_now().isoformat()}", ln=True)
     pdf.ln(2)
-    effective_width = getattr(pdf, "epw", 180)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 8, txt="Inventardaten", ln=True)
+    pdf.set_font("Helvetica", size=9)
+    inventory_lines = [
+        f"Standort: {pdf_value(client.location)}",
+        f"Inventar-Nr.: {pdf_value(client.asset_tag)}",
+        f"Seriennummer: {pdf_value(client.serial_number)}",
+        f"Abteilung: {pdf_value(client.department)}",
+        f"Verantwortlich: {pdf_value(client.responsible_person)}",
+        f"Lieferant: {pdf_value(client.supplier)}",
+        f"Anschaffungsdatum: {pdf_value(client.purchase_date.isoformat() if client.purchase_date else None)}",
+        f"Anschaffungspreis (EUR): {pdf_value(client.purchase_price_eur)}",
+        f"Garantie bis: {pdf_value(client.warranty_until.isoformat() if client.warranty_until else None)}",
+        f"Notizen: {pdf_value(client.notes)}",
+    ]
+    for line in inventory_lines:
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(effective_width, 6, line)
+    pdf.ln(1)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 8, txt="Aktueller Stand (letzter Snapshot)", ln=True)
+    pdf.set_font("Helvetica", size=9)
+    if latest_snapshot is None:
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(effective_width, 6, "Keine Snapshot-Daten vorhanden.")
+    else:
+        latest_lines = [
+            f"Zeitpunkt: {latest_snapshot.collected_at.isoformat()}",
+            f"Hostname: {pdf_value(latest_snapshot.hostname)} | OS: {pdf_value(latest_snapshot.os_version)}",
+            (
+                f"CPU Kerne/Threads: {pdf_value(latest_snapshot.cpu_cores)} / {pdf_value(latest_snapshot.cpu_threads)} | "
+                f"CPU Max MHz: {pdf_value(latest_snapshot.cpu_max_mhz)}"
+            ),
+            (
+                f"RAM gesamt (MB): {pdf_value(latest_snapshot.ram_total_mb)} | "
+                f"Uptime (s): {pdf_value(latest_snapshot.uptime_seconds)}"
+            ),
+            (
+                f"CPU Temp (C): {pdf_value(latest_snapshot.cpu_temperature_c)} "
+                f"({pdf_value(latest_raw_payload.get('cpu_temperature_source'))})"
+            ),
+            (
+                f"Luefter (RPM): {pdf_value(latest_snapshot.fan_speed_rpm)} "
+                f"({pdf_value(latest_raw_payload.get('fan_speed_source'))})"
+            ),
+            (
+                f"Mainboard: {pdf_value(latest_snapshot.motherboard_vendor)} | "
+                f"BIOS/UEFI: {pdf_value(latest_snapshot.bios_vendor)}"
+            ),
+            f"Min. freier Speicher (%): {pdf_value(snapshot_min_disk_free(latest_snapshot))}",
+        ]
+        disks = latest_snapshot.disks if isinstance(latest_snapshot.disks, list) else []
+        if disks:
+            disk_summary = ", ".join(
+                f"{disk.get('mountpoint', '?')} ({pdf_value(disk.get('free_percent'))}%)"
+                for disk in disks[:5]
+                if isinstance(disk, dict)
+            )
+            if disk_summary:
+                latest_lines.append(f"Laufwerke: {disk_summary}")
+        adapters = (
+            latest_snapshot.network_adapters
+            if isinstance(latest_snapshot.network_adapters, list)
+            else []
+        )
+        if adapters:
+            adapter_summary = ", ".join(
+                (
+                    f"{adapter.get('name', '?')} "
+                    f"{('/'.join(adapter.get('ipv4', []))) if isinstance(adapter.get('ipv4'), list) else ''}"
+                ).strip()
+                for adapter in adapters[:5]
+                if isinstance(adapter, dict)
+            )
+            if adapter_summary:
+                latest_lines.append(f"Netzwerk: {adapter_summary}")
+        gpus = latest_snapshot.gpu_info if isinstance(latest_snapshot.gpu_info, list) else []
+        if gpus:
+            gpu_summary = ", ".join(
+                str(gpu.get("name") or gpu.get("model") or "?")
+                for gpu in gpus[:5]
+                if isinstance(gpu, dict)
+            )
+            if gpu_summary:
+                latest_lines.append(f"GPU: {gpu_summary}")
+
+        for line in latest_lines:
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(effective_width, 6, line)
+    pdf.ln(1)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 8, txt="Snapshot-Verlauf (max. 200 Eintraege)", ln=True)
+    pdf.set_font("Helvetica", size=9)
     for row in rows[:200]:
         pdf.set_x(pdf.l_margin)
         pdf.multi_cell(
