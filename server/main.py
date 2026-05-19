@@ -857,15 +857,16 @@ def client_analytics(
         .limit(limit)
     ).all()
     analytics = analytics_for_snapshots(client_uid, snapshots)
-    log_event(
-        db,
-        level="info",
-        event_type="analytics_requested",
-        message=f"Analytics für Client '{client_uid}' angefordert.",
-        client_uid=client_uid,
-        details={"requested_by": auth_context.get("username"), "sample_count": analytics.sample_count},
-    )
-    db.commit()
+    if settings.log_data_access_events:
+        log_event(
+            db,
+            level="info",
+            event_type="analytics_requested",
+            message=f"Analytics für Client '{client_uid}' angefordert.",
+            client_uid=client_uid,
+            details={"requested_by": auth_context.get("username"), "sample_count": analytics.sample_count},
+        )
+        db.commit()
     return analytics
 
 
@@ -888,15 +889,16 @@ def client_anomalies(
         .limit(limit)
     ).all()
     anomalies = detect_anomalies(snapshots)
-    log_event(
-        db,
-        level="info",
-        event_type="anomalies_requested",
-        message=f"Auffälligkeiten für Client '{client_uid}' angefordert.",
-        client_uid=client_uid,
-        details={"requested_by": auth_context.get("username"), "count": len(anomalies)},
-    )
-    db.commit()
+    if settings.log_data_access_events:
+        log_event(
+            db,
+            level="info",
+            event_type="anomalies_requested",
+            message=f"Auffälligkeiten für Client '{client_uid}' angefordert.",
+            client_uid=client_uid,
+            details={"requested_by": auth_context.get("username"), "count": len(anomalies)},
+        )
+        db.commit()
     return anomalies
 
 
@@ -921,15 +923,16 @@ def export_client_data(
     ).all()
 
     rows = build_snapshot_export_rows(client, snapshots)
-    log_event(
-        db,
-        level="info",
-        event_type="export_requested",
-        message=f"Export für Client '{client_uid}' im Format '{normalized_format}' angefordert.",
-        client_uid=client_uid,
-        details={"requested_by": auth_context.get("username"), "format": normalized_format, "rows": len(rows)},
-    )
-    db.commit()
+    if settings.log_data_access_events:
+        log_event(
+            db,
+            level="info",
+            event_type="export_requested",
+            message=f"Export für Client '{client_uid}' im Format '{normalized_format}' angefordert.",
+            client_uid=client_uid,
+            details={"requested_by": auth_context.get("username"), "format": normalized_format, "rows": len(rows)},
+        )
+        db.commit()
 
     if normalized_format == "json":
         return JSONResponse(

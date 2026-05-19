@@ -100,6 +100,7 @@ Hinweis: Das Linux-Skript versucht fehlende venv-Pakete (z. B. `python3-venv`) a
 - `SERVER_API_KEY` – statischer Admin-API-Key
 - `START_ADMIN_USERNAME`, `START_ADMIN_PASSWORD` – initialer Login
 - `DATABASE_URL` – DB-Verbindung
+- `LOG_DATA_ACCESS_EVENTS` – optionales Logging von reinen Lesezugriffen (Analytics/Anomalien/Export), Standard `false`
 
 ---
 

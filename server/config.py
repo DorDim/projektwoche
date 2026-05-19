@@ -3,6 +3,11 @@ from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
+def _env_bool(name: str, default: str = "false") -> bool:
+    value = os.getenv(name, default)
+    return value.strip().lower() in {"1", "true", "yes", "on"}
+
+
 @dataclass
 class Settings:
     database_url: str = os.getenv("DATABASE_URL", "sqlite:///./hardware_monitor.db")
@@ -13,6 +18,7 @@ class Settings:
     db_pool_size: int = int(os.getenv("DB_POOL_SIZE", "10"))
     db_max_overflow: int = int(os.getenv("DB_MAX_OVERFLOW", "20"))
     db_sslmode: str | None = os.getenv("DB_SSLMODE")
+    log_data_access_events: bool = _env_bool("LOG_DATA_ACCESS_EVENTS", "false")
 
     @property
     def normalized_database_url(self) -> str:
