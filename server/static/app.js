@@ -49,7 +49,6 @@ function markActiveNavigation() {
     dashboard: "navDashboardLink",
     compare: "navCompareLink",
     users: "navUsersLink",
-    docs: "navDocsLink",
   };
   Object.values(linkMap).forEach((id) => {
     const link = getEl(id);
@@ -118,7 +117,6 @@ function updateAuthUi() {
   getEl("eventsSection")?.classList.toggle("hidden", !hasPermission("view_events"));
   getEl("navCompareLink")?.classList.toggle("hidden", !hasPermission("view_dashboard"));
   getEl("navUsersLink")?.classList.toggle("hidden", !hasPermission("manage_users"));
-  getEl("navDocsLink")?.classList.toggle("hidden", !hasPermission("view_dashboard"));
 }
 
 function showLoginScreen() {
