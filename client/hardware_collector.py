@@ -1,5 +1,6 @@
 import ipaddress
 import json
+import locale
 import platform
 import socket
 import subprocess
@@ -17,15 +18,44 @@ def _run_command(command: list[str]) -> str | None:
             command,
             check=False,
             capture_output=True,
-            text=True,
+            text=False,
             timeout=3,
         )
     except (OSError, subprocess.SubprocessError):
         return None
     if completed.returncode != 0:
         return None
-    output = completed.stdout.strip()
+    output = _decode_command_output(completed.stdout).strip()
     return output or None
+
+
+def _decode_command_output(raw_output: bytes) -> str:
+    if not raw_output:
+        return ""
+
+    # Some Windows commands emit UTF-16; prefer it when null bytes are prevalent.
+    if raw_output.startswith((b"\xff\xfe", b"\xfe\xff")) or raw_output.count(b"\x00") > len(raw_output) // 4:
+        for encoding in ("utf-16", "utf-16-le", "utf-16-be"):
+            try:
+                return raw_output.decode(encoding)
+            except UnicodeDecodeError:
+                continue
+
+    preferred_encoding = locale.getpreferredencoding(False) or "utf-8"
+    encoding_candidates = [preferred_encoding, "utf-8", "cp850", "cp1252", "latin-1"]
+    seen: set[str] = set()
+    for encoding in encoding_candidates:
+        normalized = encoding.lower()
+        if normalized in seen:
+            continue
+        seen.add(normalized)
+        try:
+            return raw_output.decode(encoding)
+        except UnicodeDecodeError:
+            continue
+
+    # Last-resort fallback to avoid crashes in collector threads.
+    return raw_output.decode(preferred_encoding, errors="replace")
 
 
 def _run_powershell(command: str) -> str | None:
