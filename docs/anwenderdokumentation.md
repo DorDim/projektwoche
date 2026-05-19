@@ -1,131 +1,216 @@
 # Anwenderdokumentation – Hardwareüberwachung
 
-Diese Anleitung ist bewusst praxisnah aufgebaut. Du findest hier typische Szenarien mit klaren Schritten.
-
-## Vorab: Login und Navigation
-
-1. Öffne die Weboberfläche (z. B. `https://deine-domain`).
-2. Melde dich mit Benutzername und Passwort an.
-3. Nutze die Navigation oben:
-   - **Dashboard**
-   - **Vergleich**
-   - **Anwenderdoku**
-   - **Nutzer** (nur mit Berechtigung)
-
-Wichtig:
-- Ohne Login sind die Unterseiten nicht zugänglich.
-- Sichtbare Bereiche hängen von den Rechten des angemeldeten Nutzers ab.
+Diese Anleitung richtet sich an Admins und Anwender.  
+Sie ist so aufgebaut, dass typische Aufgaben direkt als Schritt-für-Schritt-Ablauf umgesetzt werden können.
 
 ---
 
-## Szenario 1: Admin startet das System für ein Team
+## Inhaltsverzeichnis
+
+1. [Schnellstart in 5 Minuten](#schnellstart-in-5-minuten)
+2. [Grundlagen: Login, Navigation, Rollen](#grundlagen-login-navigation-rollen)
+3. [Szenario A: Admin richtet Benutzer ein](#szenario-a-admin-richtet-benutzer-ein)
+4. [Szenario B: Neuen Client anbinden](#szenario-b-neuen-client-anbinden)
+5. [Szenario C: Tägliche Überwachung im Dashboard](#szenario-c-tägliche-überwachung-im-dashboard)
+6. [Szenario D: Clients vergleichen](#szenario-d-clients-vergleichen)
+7. [Szenario E: Daten exportieren](#szenario-e-daten-exportieren)
+8. [Sichtbarkeit von Demo-Daten](#sichtbarkeit-von-demo-daten)
+9. [Checkliste für den Regelbetrieb](#checkliste-für-den-regelbetrieb)
+10. [Fehlerbehebung (Troubleshooting)](#fehlerbehebung-troubleshooting)
+
+---
+
+## Schnellstart in 5 Minuten
+
+1. Weboberfläche öffnen (`https://deine-domain`).
+2. Mit Benutzername und Passwort anmelden.
+3. Im Dashboard einen Client auswählen.
+4. Zeitspanne setzen (z. B. 24h).
+5. Durchschnittswerte, Alerts und Laufwerkszustand prüfen.
+
+Wenn keine Daten sichtbar sind: zuerst **Aktualisieren** klicken.
+
+---
+
+## Grundlagen: Login, Navigation, Rollen
+
+### Login
+- Ohne Login ist kein Zugriff auf Unterseiten möglich.
+- Nach dem Login werden nur Menüpunkte angezeigt, für die Berechtigungen vorhanden sind.
+
+### Navigation
+- **Dashboard**: Überblick, Details, Alerts, Export
+- **Vergleich**: Mehrere Clients nebeneinander auswerten
+- **Anwenderdoku**: Kurzanleitung und ausführliche Nutzungshinweise
+- **Nutzer**: Benutzerverwaltung (nur mit Berechtigung)
+
+### Rollen und Berechtigungen
+
+| Berechtigung | Bedeutung |
+|---|---|
+| Dashboard ansehen | Zugriff auf Dashboard und Vergleich |
+| Clients hinzufügen | Onboarding neuer Geräte |
+| Clients löschen | Entfernen vorhandener Geräte |
+| Nutzer verwalten | Benutzer anlegen, bearbeiten, deaktivieren |
+| Alert-Regeln verwalten | Grenzwerte konfigurieren |
+| Events ansehen | Ereignisprotokoll einsehen |
+
+---
+
+## Szenario A: Admin richtet Benutzer ein
 
 ### Ziel
-Benutzer anlegen und passende Rechte vergeben.
+Neue Teammitglieder erhalten nur die Rechte, die sie tatsächlich benötigen.
 
-### Schritte
+### Vorgehen
 1. Als Admin anmelden.
-2. Seite **Nutzer** öffnen.
+2. Menü **Nutzer** öffnen.
 3. Unter **Neuen Benutzer erstellen**:
-   - Benutzername und Passwort setzen
-   - Rolle wählen (User oder Admin)
-   - Rechte per Checkbox auswählen
-4. Benutzer speichern und Test-Login durchführen.
+   - Benutzername eingeben
+   - Passwort vergeben (mind. 8 Zeichen + Sonderzeichen)
+   - Rolle wählen (User/Admin)
+   - Berechtigungen setzen
+4. Benutzer erstellen.
+5. Testweise mit dem neuen Benutzer anmelden.
 
-### Rechte kurz erklärt
-- **Dashboard ansehen**: Dashboard + Vergleich nutzen.
-- **Clients hinzufügen/löschen**: Geräte aufnehmen oder entfernen.
-- **Nutzer verwalten**: Benutzerkonten erstellen/bearbeiten/deaktivieren.
-- **Alert-Regeln verwalten**: Grenzwerte konfigurieren.
-- **Events ansehen**: Ereignisprotokoll einsehen.
+### Empfehlung für den Start
+- Für reine Beobachter: nur **Dashboard ansehen**
+- Für Technik-Team: zusätzlich **Clients hinzufügen**
+- Für Teamleitung/Admin: inkl. **Nutzer verwalten** und ggf. **Alert-Regeln verwalten**
 
 ---
 
-## Szenario 2: Neuen Client anbinden (Onboarding)
+## Szenario B: Neuen Client anbinden
 
 ### Ziel
-Einen Rechner als neuen Monitoring-Client registrieren.
+Ein neues Gerät liefert automatisch Hardwaredaten an den Server.
 
 ### Voraussetzung
 Recht **Clients hinzufügen**.
 
 ### Schritte
-1. Im Dashboard auf **Neuen Client hinzufügen** klicken.
-2. Generierten Token kopieren.
-3. Auf dem Zielsystem den Ein-Befehl aus dem Dialog ausführen (Windows oder Linux).
-4. Im Dashboard auf **Aktualisieren** klicken.
-5. Prüfen, ob der neue Client in der Liste erscheint.
+1. Dashboard öffnen.
+2. Auf **Neuen Client hinzufügen** klicken.
+3. Generierten Token kopieren.
+4. Auf dem Zielgerät den angezeigten Ein-Befehl ausführen:
+   - Windows (PowerShell)
+   - Linux (Bash)
+5. Zurück im Dashboard auf **Aktualisieren** klicken.
+6. Prüfen, ob der Client in der Liste sichtbar ist.
+
+### Erfolgskriterium
+- Client erscheint als Eintrag in der Tabelle.
+- Nach kurzer Zeit sind Detaildaten und Verlauf verfügbar.
 
 ---
 
-## Szenario 3: Tägliche Überwachung im Dashboard
+## Szenario C: Tägliche Überwachung im Dashboard
 
 ### Ziel
-Gesundheitszustand eines Clients schnell beurteilen.
+Systemzustand schnell erkennen und bei Problemen reagieren.
 
-### Schritte
-1. Im Dashboard einen Client auswählen.
-2. **Zeitspanne** setzen (z. B. 1h, 24h, 7d).
-3. Bereiche prüfen:
+### Empfohlener Ablauf
+1. Client auswählen.
+2. Zeitspanne oben einstellen (1h, 6h, 24h, 7 Tage, 30 Tage, Alles).
+3. Nacheinander prüfen:
    - **Durchschnittswerte (ausgewählter Zeitraum)**
    - **Historie-Diagramme**
    - **Erkannte Auffälligkeiten**
    - **Aktuelle Alerts**
-4. Bei Laufwerken beachten:
-   - Gesamtgröße (GB)
-   - Freier Speicher in % und GB
+4. Laufwerksdetails ansehen:
+   - **Gesamt (GB)**
+   - **Frei (%)**
+   - **Frei (GB)**
 
-Hinweis:
-- Durchschnittswerte und Graphen folgen immer der oben gewählten Zeitspanne.
+### Interpretation
+- Hohe CPU-Temperatur + ansteigende Lüfterdrehzahl: mögliche Lastspitze.
+- Stark fallender freier Speicher: mögliche Speicherknappheit.
+- Uptime-Reset: Gerät wurde neu gestartet oder war kurz offline.
 
 ---
 
-## Szenario 4: Mehrere Clients vergleichen
+## Szenario D: Clients vergleichen
 
 ### Ziel
-Leistung und Speicherzustand mehrerer Geräte direkt vergleichen.
+Mehrere Systeme direkt gegeneinander bewerten.
 
 ### Schritte
-1. Seite **Vergleich** öffnen.
-2. Gewünschte Clients per Checkbox markieren.
-3. Vergleichskarten und Diagramm auswerten.
-4. Bei Bedarf zurück ins Dashboard wechseln und Details eines einzelnen Clients analysieren.
+1. Menü **Vergleich** öffnen.
+2. Relevante Clients per Checkbox auswählen.
+3. Vergleichskarten und Vergleichsdiagramm prüfen.
+4. Auffällige Geräte im Dashboard im Detail untersuchen.
+
+### Typische Fragen
+- Welcher Client hat den geringsten freien Speicher?
+- Gibt es Ausreißer bei RAM/Threads?
+- Haben bestimmte Systeme wiederholt schlechtere Werte?
 
 ---
 
-## Szenario 5: Daten für Bericht exportieren
+## Szenario E: Daten exportieren
 
 ### Ziel
-Client-Daten für Nachweise oder Auswertung sichern.
+Daten für Berichte, Audits oder externe Auswertung sichern.
 
 ### Schritte
-1. Client im Dashboard auswählen.
-2. Gewünschtes Format nutzen:
-   - **Export JSON**
-   - **Export CSV**
-   - **Export PDF**
-3. Datei lokal speichern und weiterverwenden.
+1. Im Dashboard einen Client auswählen.
+2. Exportformat wählen:
+   - **JSON** (strukturierte Rohdaten)
+   - **CSV** (Tabellenanalyse, Excel)
+   - **PDF** (schnelle Weitergabe)
+3. Datei speichern und dokumentieren.
+
+### Hinweis
+Für technische Nachvollziehbarkeit ist JSON am vollständigsten.
 
 ---
 
-## Besondere Hinweise zu Demo-Daten
+## Sichtbarkeit von Demo-Daten
 
-- Demo-Daten sind **nur** für den Demo-Benutzer sichtbar.
-- Andere Benutzer sehen diese Demo-Clients nicht.
+- Demo-Clients und Demo-bezogene Daten sind nur für den Demo-Benutzer sichtbar.
+- Normale Benutzerkonten sehen diese Daten nicht.
+
+Damit bleibt die Produktivsicht sauber getrennt von Demonstrationsdaten.
 
 ---
 
-## Häufige Probleme (Kurzlösung)
+## Checkliste für den Regelbetrieb
 
-### Login funktioniert nicht
-- Benutzername/Passwort prüfen
-- Groß-/Kleinschreibung prüfen
+- [ ] Täglicher Blick auf Alerts
+- [ ] Wöchentliche Prüfung der Top-Risikoclients (Speicher/Temperatur)
+- [ ] Monatliche Berechtigungsprüfung der Benutzer
+- [ ] Regelmäßiger Export für Nachweise oder Reports
+- [ ] Prüfen, ob neue Geräte korrekt erfasst werden
 
-### Keine Clients sichtbar
-- Agent-Installation auf dem Zielsystem prüfen
-- Im Dashboard auf **Aktualisieren** klicken
-- Prüfen, ob **Dashboard ansehen** aktiviert ist
+---
 
-### Nutzer-Seite fehlt
-- Dem Benutzer fehlt vermutlich das Recht **Nutzer verwalten**
+## Fehlerbehebung (Troubleshooting)
+
+### Problem: Login fehlgeschlagen
+**Prüfen:**
+- Benutzername korrekt?
+- Passwort korrekt?
+- Groß-/Kleinschreibung beachtet?
+- Benutzerkonto aktiv?
+
+### Problem: Kein Client sichtbar
+**Prüfen:**
+- Agent auf Zielsystem installiert und gestartet?
+- Im Dashboard auf **Aktualisieren** geklickt?
+- Berechtigung **Dashboard ansehen** vorhanden?
+
+### Problem: Nutzerverwaltung fehlt
+**Prüfen:**
+- Berechtigung **Nutzer verwalten** gesetzt?
+- Mit dem richtigen Benutzer angemeldet?
+
+### Problem: Keine Daten trotz sichtbarem Client
+**Prüfen:**
+- Netzwerkverbindung zwischen Client und Server
+- API-Token/Server-URL im Agent korrekt
+- Logs/Events für Hinweise auf Übertragungsfehler
+
+---
+
+Wenn gewünscht, kann diese Doku zusätzlich als kurze 1-Seiten-Betriebsanleitung (PDF-Format) bereitgestellt werden.
 

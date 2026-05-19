@@ -72,36 +72,51 @@
         </div>
       </header>
 
-      <main class="mx-auto grid w-full max-w-5xl gap-4 px-4 py-4">
+      <main class="mx-auto grid w-full max-w-6xl gap-4 px-4 py-4">
         <div id="errorBanner" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
 
-        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-xl font-semibold">Vorab: Login und Navigation</h2>
-          <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm">
-            <li>Weboberfläche öffnen und anmelden.</li>
-            <li>Oben über die Navigation zwischen Dashboard, Vergleich, Anwenderdoku und Nutzer wechseln.</li>
-            <li>Wenn ein Menüpunkt fehlt, fehlen wahrscheinlich passende Berechtigungen.</li>
-          </ol>
+        <section class="rounded-xl border border-indigo-200 bg-gradient-to-r from-indigo-50 to-blue-50 p-5 shadow-sm">
+          <h2 class="text-2xl font-bold text-slate-900">Anwenderdokumentation</h2>
+          <p class="mt-2 max-w-4xl text-sm text-slate-700">
+            Diese Seite ist als praxisnahe Schritt-für-Schritt-Anleitung aufgebaut. Sie unterstützt beim Einstieg,
+            beim täglichen Betrieb und bei typischen Fehlerfällen.
+          </p>
+          <div class="mt-4 grid gap-3 sm:grid-cols-2 lg:grid-cols-4">
+            <a href="#schnellstart" class="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">
+              Schnellstart
+            </a>
+            <a href="#szenarien" class="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">
+              Szenarien
+            </a>
+            <a href="#rollen" class="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">
+              Rollen & Rechte
+            </a>
+            <a href="#troubleshooting" class="rounded-lg border border-indigo-200 bg-white px-3 py-2 text-xs font-semibold text-indigo-700 hover:bg-indigo-50">
+              Troubleshooting
+            </a>
+          </div>
         </section>
 
-        <section class="rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
-          <h2 class="text-xl font-semibold text-blue-900">Szenario 1: Admin richtet Benutzer ein</h2>
-          <div class="mt-3 grid gap-4 md:grid-cols-2">
-            <div>
-              <h3 class="font-semibold text-blue-900">Ziel</h3>
-              <p class="mt-1 text-sm text-blue-800">Benutzerkonten anlegen und Rechte sauber verteilen.</p>
-            </div>
-            <div>
-              <h3 class="font-semibold text-blue-900">Schritte</h3>
-              <ol class="mt-1 list-decimal space-y-1 pl-5 text-sm text-blue-800">
-                <li>Als Admin anmelden.</li>
-                <li>Seite <span class="font-medium">Nutzer</span> öffnen.</li>
-                <li>Benutzer erstellen und Rechte auswählen.</li>
-                <li>Test-Login mit dem neuen Benutzer durchführen.</li>
-              </ol>
-            </div>
+        <section id="schnellstart" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="text-xl font-semibold">Schnellstart in 5 Minuten</h2>
+          <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm">
+            <li>Mit Benutzername und Passwort anmelden.</li>
+            <li>Im Dashboard einen Client auswählen.</li>
+            <li>Zeitspanne auf 24h setzen.</li>
+            <li>Durchschnittswerte, Alerts und Laufwerksstatus prüfen.</li>
+            <li>Bei Bedarf über Vergleich und Export weiter analysieren.</li>
+          </ol>
+          <div class="mt-4 rounded-lg border border-amber-200 bg-amber-50 px-3 py-2 text-xs text-amber-800">
+            Tipp: Wenn Daten fehlen, zuerst auf <span class="font-semibold">Aktualisieren</span> klicken.
           </div>
-          <div class="mt-4 overflow-x-auto rounded-lg border border-blue-200 bg-white">
+        </section>
+
+        <section id="rollen" class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="text-xl font-semibold">Rollen und Berechtigungen</h2>
+          <p class="mt-2 text-sm text-slate-600">
+            Sichtbare Menüpunkte und Aktionen hängen von den Benutzerrechten ab.
+          </p>
+          <div class="mt-3 overflow-x-auto rounded-lg border border-slate-200">
             <table class="min-w-full divide-y divide-slate-200 text-sm">
               <thead class="bg-slate-50">
                 <tr>
@@ -123,6 +138,10 @@
                   <td class="px-3 py-2">Benutzerkonten erstellen, ändern und deaktivieren.</td>
                 </tr>
                 <tr>
+                  <td class="px-3 py-2">Events ansehen</td>
+                  <td class="px-3 py-2">Ereignisprotokoll und Systemhinweise einsehen.</td>
+                </tr>
+                <tr>
                   <td class="px-3 py-2">Alert-Regeln verwalten</td>
                   <td class="px-3 py-2">Grenzwerte für Warnungen konfigurieren.</td>
                 </tr>
@@ -131,63 +150,117 @@
           </div>
         </section>
 
-        <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
-          <h2 class="text-xl font-semibold text-emerald-900">Szenario 2: Neuen Client anbinden</h2>
-          <p class="mt-2 text-sm text-emerald-800">Voraussetzung: Recht <span class="font-medium">Clients hinzufügen</span>.</p>
-          <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-emerald-900">
-            <li>Im Dashboard auf <span class="font-medium">Neuen Client hinzufügen</span> klicken.</li>
-            <li>Token kopieren.</li>
-            <li>Ein-Befehl für Windows oder Linux auf dem Zielsystem ausführen.</li>
-            <li>Auf <span class="font-medium">Aktualisieren</span> klicken und neuen Client prüfen.</li>
-          </ol>
-        </section>
+        <section id="szenarien" class="grid gap-4 lg:grid-cols-2">
+          <article class="rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
+            <h3 class="text-lg font-semibold text-blue-900">Szenario A: Admin richtet Team ein</h3>
+            <p class="mt-1 text-sm text-blue-800">Benutzer anlegen und Rechte sauber verteilen.</p>
+            <ol class="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-blue-900">
+              <li>Als Admin anmelden.</li>
+              <li>Nutzer-Seite öffnen.</li>
+              <li>Benutzer mit Rolle und Rechten anlegen.</li>
+              <li>Test-Login durchführen.</li>
+            </ol>
+          </article>
 
-        <section class="rounded-xl border border-violet-200 bg-violet-50 p-5 shadow-sm">
-          <h2 class="text-xl font-semibold text-violet-900">Szenario 3: Tägliche Überwachung</h2>
-          <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-violet-900">
-            <li>Client auswählen.</li>
-            <li>Zeitspanne setzen (z. B. 1h, 24h, 7d).</li>
-            <li>Durchschnittswerte, Diagramme, Auffälligkeiten und Alerts prüfen.</li>
-            <li>Bei Laufwerken Gesamtgröße (GB), Frei (%) und Frei (GB) bewerten.</li>
-          </ol>
-        </section>
+          <article class="rounded-xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+            <h3 class="text-lg font-semibold text-emerald-900">Szenario B: Client Onboarding</h3>
+            <p class="mt-1 text-sm text-emerald-800">Voraussetzung: Recht <span class="font-semibold">Clients hinzufügen</span>.</p>
+            <ol class="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-emerald-900">
+              <li>„Neuen Client hinzufügen“ öffnen.</li>
+              <li>Token kopieren.</li>
+              <li>Ein-Befehl auf Zielsystem ausführen.</li>
+              <li>Dashboard aktualisieren.</li>
+            </ol>
+          </article>
 
-        <section class="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
-          <h2 class="text-xl font-semibold text-amber-900">Szenario 4: Vergleich und Export</h2>
-          <div class="grid gap-4 md:grid-cols-2">
-            <div>
-              <h3 class="font-semibold text-amber-900">Vergleich</h3>
-              <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">
-                <li>Seite <span class="font-medium">Vergleich</span> öffnen.</li>
-                <li>Clients per Checkbox auswählen.</li>
-                <li>Vergleichstabelle und Diagramm auswerten.</li>
-              </ol>
+          <article class="rounded-xl border border-violet-200 bg-violet-50 p-5 shadow-sm">
+            <h3 class="text-lg font-semibold text-violet-900">Szenario C: Tägliche Überwachung</h3>
+            <ol class="mt-3 list-decimal space-y-1.5 pl-5 text-sm text-violet-900">
+              <li>Client auswählen.</li>
+              <li>Zeitspanne festlegen.</li>
+              <li>Durchschnittswerte und Diagramme prüfen.</li>
+              <li>Auffälligkeiten und Alerts bewerten.</li>
+              <li>Laufwerke (Gesamt/Frei) prüfen.</li>
+            </ol>
+          </article>
+
+          <article class="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+            <h3 class="text-lg font-semibold text-amber-900">Szenario D: Vergleich und Export</h3>
+            <div class="grid gap-3 md:grid-cols-2">
+              <div>
+                <h4 class="font-semibold text-amber-900">Vergleich</h4>
+                <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">
+                  <li>Vergleich-Seite öffnen.</li>
+                  <li>Clients auswählen.</li>
+                  <li>Kennzahlen und Diagramm auswerten.</li>
+                </ol>
+              </div>
+              <div>
+                <h4 class="font-semibold text-amber-900">Export</h4>
+                <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">
+                  <li>Client auswählen.</li>
+                  <li>Format (JSON/CSV/PDF) wählen.</li>
+                  <li>Datei speichern.</li>
+                </ol>
+              </div>
             </div>
-            <div>
-              <h3 class="font-semibold text-amber-900">Export</h3>
-              <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">
-                <li>Client im Dashboard auswählen.</li>
-                <li>Exportformat wählen: JSON, CSV oder PDF.</li>
-                <li>Datei speichern und weiterverwenden.</li>
-              </ol>
+          </article>
+        </section>
+
+        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="text-xl font-semibold">Wichtige Hinweise</h2>
+          <div class="mt-3 grid gap-3 md:grid-cols-2">
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              Demo-Daten sind nur mit dem Demo-Benutzer sichtbar.
+            </div>
+            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-700">
+              Fehlende Menüpunkte bedeuten in der Regel fehlende Berechtigungen.
             </div>
           </div>
         </section>
 
-        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-xl font-semibold">Besondere Hinweise und Troubleshooting</h2>
-          <ul class="mt-3 list-disc space-y-2 pl-5 text-sm">
-            <li>Demo-Daten sind nur mit dem Demo-Benutzer sichtbar.</li>
-            <li>Wenn keine Clients erscheinen: Aktualisieren, Agent prüfen, Rechte prüfen.</li>
-            <li>Wenn Login fehlschlägt: Benutzername/Passwort und Groß-/Kleinschreibung kontrollieren.</li>
-            <li>Wenn die Nutzer-Seite fehlt: Recht <span class="font-medium">Nutzer verwalten</span> fehlt.</li>
-          </ul>
+        <section id="troubleshooting" class="rounded-xl border border-rose-200 bg-rose-50 p-5 shadow-sm">
+          <h2 class="text-xl font-semibold text-rose-900">Troubleshooting</h2>
+          <div class="mt-3 space-y-3 text-sm text-rose-900">
+            <div class="rounded-lg border border-rose-200 bg-white p-3">
+              <h3 class="font-semibold">Login fehlgeschlagen</h3>
+              <ul class="mt-1 list-disc space-y-1 pl-5">
+                <li>Benutzername/Passwort prüfen</li>
+                <li>Groß-/Kleinschreibung beachten</li>
+                <li>Benutzerkonto aktiv?</li>
+              </ul>
+            </div>
+            <div class="rounded-lg border border-rose-200 bg-white p-3">
+              <h3 class="font-semibold">Keine Clients sichtbar</h3>
+              <ul class="mt-1 list-disc space-y-1 pl-5">
+                <li>Auf „Aktualisieren“ klicken</li>
+                <li>Agent auf Zielsystem prüfen</li>
+                <li>Recht „Dashboard ansehen“ vorhanden?</li>
+              </ul>
+            </div>
+            <div class="rounded-lg border border-rose-200 bg-white p-3">
+              <h3 class="font-semibold">Nutzer-Seite fehlt</h3>
+              <ul class="mt-1 list-disc space-y-1 pl-5">
+                <li>Recht „Nutzer verwalten“ fehlt</li>
+              </ul>
+            </div>
+          </div>
         </section>
       </main>
     </div>
 
-    <footer class="border-t border-slate-200 bg-white px-4 py-4 text-center text-xs text-slate-600">
-      Hierbei handelt es sich um ein Tool, was in Bezug auf eine Projektarbeit entstanden ist
+    <footer class="border-t border-slate-200 bg-white px-4 py-4">
+      <div class="mx-auto flex w-full max-w-7xl flex-col items-center justify-between gap-3 text-center sm:flex-row sm:text-left">
+        <p class="text-xs text-slate-600">
+          Hierbei handelt es sich um ein Tool, was in Bezug auf eine Projektarbeit entstanden ist
+        </p>
+        <a
+          href="/anwenderdoku"
+          class="inline-flex items-center rounded-lg border border-blue-300 bg-blue-50 px-3 py-1.5 text-xs font-semibold text-blue-700 hover:bg-blue-100"
+        >
+          Zur Anwenderdoku
+        </a>
+      </div>
     </footer>
 
     <script src="/static/app.js"></script>
