@@ -1,10 +1,11 @@
 import hashlib
 import io
 import logging
+import math
 import secrets
 import statistics
 from csv import DictWriter
-from datetime import datetime, timezone
+from datetime import datetime, timedelta, timezone
 from pathlib import Path
 from typing import Annotated
 
@@ -508,6 +509,229 @@ def detect_anomalies(snapshots: list[HardwareSnapshot]) -> list[AnomalyOut]:
     return sorted(anomalies, key=lambda item: item.collected_at, reverse=True)
 
 
+def demo_client_uid(index: int) -> str:
+    return f"demo-client-{index:02d}"
+
+
+def _demo_permissions() -> dict[str, bool]:
+    return normalize_permissions(
+        {
+            "view_dashboard": True,
+            "add_clients": False,
+            "delete_clients": False,
+            "manage_users": False,
+            "manage_alert_rules": False,
+            "view_events": False,
+            "ingest_data": False,
+        },
+        role="user",
+    )
+
+
+def ensure_demo_user(db: Session) -> None:
+    if not settings.enable_demo_data:
+        return
+
+    username = settings.demo_username.strip()
+    if not username:
+        return
+
+    try:
+        validate_password_strength(settings.demo_password)
+    except ValueError as exc:
+        logger.warning("Demo-Benutzer wird übersprungen (ungültiges Passwort): %s", exc)
+        return
+
+    user = db.scalar(select(AppUser).where(AppUser.username == username))
+    permissions = _demo_permissions()
+    if user is None:
+        db.add(
+            AppUser(
+                username=username,
+                password_hash=hash_password(settings.demo_password),
+                role="user",
+                permissions=permissions,
+                is_active=True,
+            )
+        )
+        log_event(
+            db,
+            level="info",
+            event_type="demo_user_created",
+            message=f"Demo-Benutzer '{username}' wurde angelegt.",
+        )
+        return
+
+    if user.role != "admin":
+        user.role = "user"
+        user.permissions = permissions
+        user.is_active = True
+        if not verify_password(settings.demo_password, user.password_hash):
+            user.password_hash = hash_password(settings.demo_password)
+
+
+def _build_demo_snapshot(client: Client, client_index: int, collected_at: datetime) -> HardwareSnapshot:
+    epoch_minutes = int(collected_at.timestamp() // 60)
+
+    cpu_threads = 4 + client_index * 2
+    cpu_cores = max(2, cpu_threads // 2)
+    ram_total_mb = float(8192 + client_index * 2048)
+
+    base_temp = 46 + (client_index * 1.4) + 7 * math.sin((epoch_minutes / 17.0) + client_index)
+    temp_spike = 20 if client_index % 3 == 0 and epoch_minutes % 180 < 8 else 0
+    cpu_temperature = round(max(28.0, min(98.0, base_temp + temp_spike)), 2)
+
+    fan_speed = int(max(700, min(4200, 900 + cpu_temperature * 16 + (client_index * 110))))
+
+    disk_total_gb = float(256 + client_index * 128)
+    disk_free_percent = 38 + 15 * math.sin((epoch_minutes / 23.0) + client_index)
+    if client_index % 4 == 0 and epoch_minutes % 200 < 10:
+        disk_free_percent = 4.3
+    disk_free_percent = round(max(2.0, min(92.0, disk_free_percent)), 2)
+    disk_free_gb = round(disk_total_gb * (disk_free_percent / 100.0), 2)
+
+    uptime_cycle_seconds = 8 * 3600 + client_index * 2200
+    uptime_seconds = int((epoch_minutes * 60 + client_index * 503) % uptime_cycle_seconds)
+
+    ip_tail = (20 + client_index + (epoch_minutes % 90)) % 250
+    network = [
+        {
+            "name": "Ethernet",
+            "ipv4": [f"10.20.{client_index}.{ip_tail}"],
+            "ipv6": [],
+            "mac": f"02:42:ac:11:{client_index:02x}:{(ip_tail % 255):02x}",
+        }
+    ]
+
+    disks = [
+        {
+            "mountpoint": "C:\\" if "Windows" in (client.os_version or "") else "/",
+            "filesystem": "ntfs" if "Windows" in (client.os_version or "") else "ext4",
+            "total_gb": round(disk_total_gb, 2),
+            "used_gb": round(disk_total_gb - disk_free_gb, 2),
+            "free_gb": disk_free_gb,
+            "free_percent": disk_free_percent,
+        }
+    ]
+
+    raw_payload = {
+        "cpu_temperature_source": "demo-generator",
+        "fan_speed_source": "demo-generator",
+    }
+
+    return HardwareSnapshot(
+        client_id=client.id,
+        collected_at=collected_at,
+        hostname=client.hostname,
+        os_version=client.os_version,
+        cpu_cores=cpu_cores,
+        cpu_threads=cpu_threads,
+        cpu_max_mhz=round(3200 + client_index * 120 + 160 * math.sin(epoch_minutes / 13.0), 2),
+        ram_total_mb=ram_total_mb,
+        gpu_info=[
+            {
+                "name": "NVIDIA GeForce RTX Demo"
+                if client_index % 2 == 0
+                else "AMD Radeon Demo",
+                "memory_mb": 6144 + client_index * 512,
+                "driver": "demo-driver",
+            }
+        ],
+        motherboard_vendor=f"DemoBoard {client_index}",
+        bios_vendor=f"DemoBIOS {client_index}",
+        disks=disks,
+        network_adapters=network,
+        uptime_seconds=uptime_seconds,
+        cpu_temperature_c=cpu_temperature,
+        fan_speed_rpm=fan_speed,
+        raw_payload=raw_payload,
+    )
+
+
+def ensure_demo_clients_and_data(db: Session) -> None:
+    if not settings.enable_demo_data:
+        return
+
+    now = utc_now()
+    client_count = max(5, settings.demo_client_count)
+    rules = db.scalars(select(AlertRule).where(AlertRule.enabled.is_(True))).all()
+    data_changed = False
+
+    for index in range(1, client_count + 1):
+        uid = demo_client_uid(index)
+        hostname = f"demo-host-{index:02d}"
+        os_version = "Windows 11 Pro" if index % 2 == 0 else "Ubuntu 24.04 LTS"
+
+        client = db.scalar(select(Client).where(Client.client_uid == uid))
+        if client is None:
+            first_seen = now - timedelta(hours=24)
+            client = Client(
+                client_uid=uid,
+                hostname=hostname,
+                os_version=os_version,
+                first_seen=first_seen,
+                last_seen=now,
+            )
+            db.add(client)
+            db.flush()
+            data_changed = True
+        else:
+            client.hostname = hostname
+            client.os_version = os_version
+            client.last_seen = now
+
+        latest = db.scalar(
+            select(HardwareSnapshot)
+            .where(HardwareSnapshot.client_id == client.id)
+            .order_by(HardwareSnapshot.collected_at.desc())
+            .limit(1)
+        )
+
+        # Initial history for demo visualization.
+        if latest is None:
+            for hours_back in range(24, 0, -1):
+                collected_at = now - timedelta(hours=hours_back)
+                snapshot = _build_demo_snapshot(client, index, collected_at)
+                db.add(snapshot)
+                db.flush()
+                for rule in rules:
+                    evaluation = evaluate_rule(rule, snapshot)
+                    if evaluation.triggered and evaluation.metric_value is not None and evaluation.message:
+                        db.add(
+                            AlertEvent(
+                                rule_id=rule.id,
+                                snapshot_id=snapshot.id,
+                                client_id=client.id,
+                                metric_value=evaluation.metric_value,
+                                message=evaluation.message,
+                            )
+                        )
+            data_changed = True
+        else:
+            latest_ts = ensure_utc(latest.collected_at)
+            age_seconds = (now - latest_ts).total_seconds()
+            if age_seconds >= max(10, settings.demo_snapshot_interval_seconds):
+                snapshot = _build_demo_snapshot(client, index, now)
+                db.add(snapshot)
+                db.flush()
+                for rule in rules:
+                    evaluation = evaluate_rule(rule, snapshot)
+                    if evaluation.triggered and evaluation.metric_value is not None and evaluation.message:
+                        db.add(
+                            AlertEvent(
+                                rule_id=rule.id,
+                                snapshot_id=snapshot.id,
+                                client_id=client.id,
+                                metric_value=evaluation.metric_value,
+                                message=evaluation.message,
+                            )
+                        )
+                data_changed = True
+
+    if data_changed:
+        db.commit()
+
+
 def get_client_by_uid_or_404(db: Session, client_uid: str) -> Client:
     client = db.scalar(select(Client).where(Client.client_uid == client_uid))
     if client is None:
@@ -565,6 +789,8 @@ def startup():
                     event_type="admin_bootstrap_updated",
                     message=f"Start-Admin '{settings.start_admin_username}' wurde mit aktueller .env aktualisiert.",
                 )
+        ensure_demo_user(db)
+        ensure_demo_clients_and_data(db)
         db.commit()
 
 
@@ -773,6 +999,7 @@ def ingest_snapshot(client_uid: str, payload: HardwareSnapshotIn, db: Session = 
 
 @api.get("/clients", response_model=list[ClientOut], dependencies=[Depends(require_permission("view_dashboard"))])
 def list_clients(db: Session = Depends(get_db)):
+    ensure_demo_clients_and_data(db)
     now = utc_now()
     clients = db.scalars(select(Client).order_by(Client.hostname.asc())).all()
     out: list[ClientOut] = []
@@ -857,15 +1084,16 @@ def client_analytics(
         .limit(limit)
     ).all()
     analytics = analytics_for_snapshots(client_uid, snapshots)
-    log_event(
-        db,
-        level="info",
-        event_type="analytics_requested",
-        message=f"Analytics für Client '{client_uid}' angefordert.",
-        client_uid=client_uid,
-        details={"requested_by": auth_context.get("username"), "sample_count": analytics.sample_count},
-    )
-    db.commit()
+    if settings.log_data_access_events:
+        log_event(
+            db,
+            level="info",
+            event_type="analytics_requested",
+            message=f"Analytics für Client '{client_uid}' angefordert.",
+            client_uid=client_uid,
+            details={"requested_by": auth_context.get("username"), "sample_count": analytics.sample_count},
+        )
+        db.commit()
     return analytics
 
 
@@ -888,15 +1116,16 @@ def client_anomalies(
         .limit(limit)
     ).all()
     anomalies = detect_anomalies(snapshots)
-    log_event(
-        db,
-        level="info",
-        event_type="anomalies_requested",
-        message=f"Auffälligkeiten für Client '{client_uid}' angefordert.",
-        client_uid=client_uid,
-        details={"requested_by": auth_context.get("username"), "count": len(anomalies)},
-    )
-    db.commit()
+    if settings.log_data_access_events:
+        log_event(
+            db,
+            level="info",
+            event_type="anomalies_requested",
+            message=f"Auffälligkeiten für Client '{client_uid}' angefordert.",
+            client_uid=client_uid,
+            details={"requested_by": auth_context.get("username"), "count": len(anomalies)},
+        )
+        db.commit()
     return anomalies
 
 
@@ -921,15 +1150,16 @@ def export_client_data(
     ).all()
 
     rows = build_snapshot_export_rows(client, snapshots)
-    log_event(
-        db,
-        level="info",
-        event_type="export_requested",
-        message=f"Export für Client '{client_uid}' im Format '{normalized_format}' angefordert.",
-        client_uid=client_uid,
-        details={"requested_by": auth_context.get("username"), "format": normalized_format, "rows": len(rows)},
-    )
-    db.commit()
+    if settings.log_data_access_events:
+        log_event(
+            db,
+            level="info",
+            event_type="export_requested",
+            message=f"Export für Client '{client_uid}' im Format '{normalized_format}' angefordert.",
+            client_uid=client_uid,
+            details={"requested_by": auth_context.get("username"), "format": normalized_format, "rows": len(rows)},
+        )
+        db.commit()
 
     if normalized_format == "json":
         return JSONResponse(
