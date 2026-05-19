@@ -8,7 +8,7 @@ Zentrale Hardwareüberwachung mit:
 
 Wichtige Funktionen:
 - Export pro Client als **CSV, JSON, PDF**
-- **Trends und Durchschnittswerte** je Client
+- **Durchschnittswerte je ausgewähltem Zeitraum** pro Client
 - **Auffälligkeitserkennung** (z. B. Temperatur, Speicher, Uptime-Reset)
 - **Ereignis- und Fehlerprotokollierung**
 - Frei konfigurierbare **Alarmregeln** mit visueller + akustischer Alarmausgabe
@@ -72,6 +72,11 @@ Wichtige Rechte:
 - `manage_users` → Benutzerkonten anlegen/bearbeiten/löschen
 - `view_dashboard` → Dashboard/Compare lesen
 
+Demo-Modus (standardmäßig aktiv):
+- Benutzer: `DEMO_USERNAME` (Standard `demo`)
+- Passwort: `DEMO_PASSWORD` (Standard `Demo!123`)
+- Erzeugt automatisch mindestens 5 Demo-Clients mit Verlaufsdaten.
+
 ---
 
 ## Client installieren
@@ -99,6 +104,10 @@ Hinweis: Das Linux-Skript versucht fehlende venv-Pakete (z. B. `python3-venv`) a
 - `TRAEFIK_DOCKER_API_VERSION` – Docker API Override für Traefik (Standard: `1.41`)
 - `SERVER_API_KEY` – statischer Admin-API-Key
 - `START_ADMIN_USERNAME`, `START_ADMIN_PASSWORD` – initialer Login
+- `ENABLE_DEMO_DATA` – Demo-Benutzer und Demo-Clients automatisch erzeugen (Standard `true`)
+- `DEMO_USERNAME`, `DEMO_PASSWORD` – Login für Demo-Konto
+- `DEMO_CLIENT_COUNT` – Anzahl Demo-Clients (mindestens 5)
+- `DEMO_SNAPSHOT_INTERVAL_SECONDS` – Intervall für neue Demo-Snapshots
 - `DATABASE_URL` – DB-Verbindung
 - `LOG_DATA_ACCESS_EVENTS` – optionales Logging von reinen Lesezugriffen (Analytics/Anomalien/Export), Standard `false`
 

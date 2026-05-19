@@ -13,6 +13,7 @@ let audioContext = null;
 let latestAlertTimestamp = null;
 let currentClientSnapshots = [];
 let currentClientLatestSnapshot = null;
+let currentClientAnomalies = [];
 const currentPage = document.body?.dataset?.page || "dashboard";
 
 const REPOSITORY_URL = "https://github.com/DorDim/projektwoche.git";
@@ -240,6 +241,14 @@ function filterSnapshotsByTimeRange(snapshots) {
   const filtered = snapshots.filter((snapshot) => new Date(snapshot.collected_at).getTime() >= threshold);
   if (filtered.length > 0) return filtered;
   return [snapshots[0]];
+}
+
+function filterAnomaliesByTimeRange(anomalies) {
+  if (!anomalies || anomalies.length === 0) return [];
+  const hours = getTimeRangeHours();
+  if (hours === null) return [...anomalies];
+  const threshold = Date.now() - hours * 3600 * 1000;
+  return anomalies.filter((entry) => new Date(entry.collected_at).getTime() >= threshold);
 }
 
 function sourceBadge(source) {
@@ -534,6 +543,7 @@ function resetDetailView(message) {
   }
   currentClientSnapshots = [];
   currentClientLatestSnapshot = null;
+  currentClientAnomalies = [];
   if (historyChart) historyChart.destroy();
   if (uptimeChart) uptimeChart.destroy();
   if (diskChart) diskChart.destroy();
@@ -758,25 +768,42 @@ function renderHardwareDetails(snapshot) {
   renderGpuDetails(snapshot.gpu_info || []);
 }
 
-function renderAnalytics(analytics) {
+function minDiskFreePercent(snapshot) {
+  if (!snapshot || !snapshot.disks || snapshot.disks.length === 0) return null;
+  const values = snapshot.disks
+    .map((disk) => Number(disk.free_percent))
+    .filter((value) => Number.isFinite(value));
+  if (values.length === 0) return null;
+  return Math.min(...values);
+}
+
+function averageNumber(values) {
+  const validValues = values.filter((value) => Number.isFinite(value));
+  if (validValues.length === 0) return null;
+  return validValues.reduce((sum, value) => sum + value, 0) / validValues.length;
+}
+
+function renderAveragesFromSnapshots(snapshots) {
   const container = getEl("analyticsCards");
   if (!container) return;
-  if (!analytics || analytics.sample_count === 0) {
+  if (!snapshots || snapshots.length === 0) {
     container.innerHTML = `
       <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-        Keine Analytics-Daten vorhanden.
+        Keine Daten im ausgewählten Zeitraum vorhanden.
       </div>
     `;
     return;
   }
+  const avgCpu = averageNumber(snapshots.map((snapshot) => Number(snapshot.cpu_temperature_c)));
+  const avgDiskFree = averageNumber(snapshots.map((snapshot) => minDiskFreePercent(snapshot)));
+  const avgUptimeSeconds = averageNumber(snapshots.map((snapshot) => Number(snapshot.uptime_seconds)));
+  const avgFanSpeedRpm = averageNumber(snapshots.map((snapshot) => Number(snapshot.fan_speed_rpm)));
   const cards = [
-    ["Samples", fmt(analytics.sample_count, 0)],
-    ["Ø CPU-Temperatur (°C)", fmt(analytics.avg_cpu_temperature_c, 2)],
-    ["Ø Min. freier Speicher (%)", fmt(analytics.avg_disk_free_percent_min, 2)],
-    ["Ø Uptime (s)", fmt(analytics.avg_uptime_seconds, 1)],
-    ["Trend CPU-Temp / h", fmt(analytics.trend_cpu_temperature_c_per_hour, 4)],
-    ["Trend freier Speicher / h", fmt(analytics.trend_disk_free_percent_min_per_hour, 4)],
-    ["Trend Uptime / h", fmt(analytics.trend_uptime_seconds_per_hour, 4)],
+    ["Samples im Zeitraum", fmt(snapshots.length, 0)],
+    ["Ø CPU-Temperatur (°C)", fmt(avgCpu, 2)],
+    ["Ø Min. freier Speicher (%)", fmt(avgDiskFree, 2)],
+    ["Ø Uptime (s)", fmt(avgUptimeSeconds, 0)],
+    ["Ø Lüfterdrehzahl (RPM)", fmt(avgFanSpeedRpm, 0)],
   ];
   container.innerHTML = cards
     .map(
@@ -857,6 +884,9 @@ function openChartModal(chartType) {
 function rerenderClientVisuals() {
   if (!currentClientSnapshots.length || !currentClientLatestSnapshot) return;
   const filteredSnapshots = filterSnapshotsByTimeRange(currentClientSnapshots);
+  const filteredAnomalies = filterAnomaliesByTimeRange(currentClientAnomalies);
+  renderAveragesFromSnapshots(filteredSnapshots);
+  renderAnomalies(filteredAnomalies);
   renderResourceHistory(filteredSnapshots);
   renderUptimeHistory(filteredSnapshots);
   renderDiskUsageChart(currentClientLatestSnapshot);
@@ -945,24 +975,23 @@ function renderCompareVisuals(rows) {
 
 async function loadClientDetails(clientUid) {
   if (!getEl("detailsTitle")) return;
-  const [snapshots, analytics, anomalies] = await Promise.all([
+  const [snapshots, anomalies] = await Promise.all([
     apiGet(`/api/clients/${clientUid}/snapshots?limit=1000`),
-    apiGet(`/api/clients/${clientUid}/analytics?limit=200`),
     apiGet(`/api/clients/${clientUid}/anomalies?limit=200`),
   ]);
   if (!snapshots || snapshots.length === 0) {
     currentClientSnapshots = [];
     currentClientLatestSnapshot = null;
+    currentClientAnomalies = [];
     resetDetailView("Für diesen Client sind noch keine Snapshots vorhanden.");
     return;
   }
   const latest = snapshots[0];
   currentClientSnapshots = snapshots;
   currentClientLatestSnapshot = latest;
+  currentClientAnomalies = anomalies || [];
   getEl("detailsTitle").textContent = `Client-Details: ${latest.hostname} (${clientUid})`;
   renderHardwareDetails(latest);
-  renderAnalytics(analytics);
-  renderAnomalies(anomalies);
   rerenderClientVisuals();
 }
 
