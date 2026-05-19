@@ -49,6 +49,7 @@ function markActiveNavigation() {
     dashboard: "navDashboardLink",
     compare: "navCompareLink",
     users: "navUsersLink",
+    docs: "navDocsLink",
   };
   Object.values(linkMap).forEach((id) => {
     const link = getEl(id);
@@ -117,6 +118,7 @@ function updateAuthUi() {
   getEl("eventsSection")?.classList.toggle("hidden", !hasPermission("view_events"));
   getEl("navCompareLink")?.classList.toggle("hidden", !hasPermission("view_dashboard"));
   getEl("navUsersLink")?.classList.toggle("hidden", !hasPermission("manage_users"));
+  getEl("navDocsLink")?.classList.toggle("hidden", !hasPermission("view_dashboard"));
 }
 
 function showLoginScreen() {
@@ -706,7 +708,7 @@ function renderDiskDetails(disks) {
   if (!body) return;
   if (!disks || disks.length === 0) {
     body.innerHTML =
-      '<tr><td class="px-3 py-2 text-slate-500" colspan="4">Keine Laufwerksdaten vorhanden</td></tr>';
+      '<tr><td class="px-3 py-2 text-slate-500" colspan="5">Keine Laufwerksdaten vorhanden</td></tr>';
     return;
   }
   body.innerHTML = disks
@@ -715,6 +717,7 @@ function renderDiskDetails(disks) {
       <tr>
         <td class="px-3 py-2">${escapeHtml(disk.mountpoint)}</td>
         <td class="px-3 py-2">${escapeHtml(disk.filesystem)}</td>
+        <td class="px-3 py-2">${fmt(disk.total_gb, 2)}</td>
         <td class="px-3 py-2">${fmt(disk.free_percent, 2)}</td>
         <td class="px-3 py-2">${fmt(disk.free_gb, 2)}</td>
       </tr>`
@@ -1571,7 +1574,7 @@ async function refreshAll() {
   }
 
   if (hasDetails) {
-    if (selectedClientUid) {
+    if (selectedClientUid && clients.some((client) => client.client_uid === selectedClientUid)) {
       await loadClientDetails(selectedClientUid);
     } else if (clients.length > 0) {
       selectedClientUid = clients[0].client_uid;

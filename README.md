@@ -51,6 +51,7 @@ docker compose logs -f server
 5. Aufrufen:
 - Dashboard: `https://DEINE_DOMAIN`
 - Vergleich: `https://DEINE_DOMAIN/compare`
+- Anwenderdoku: `https://DEINE_DOMAIN/anwenderdoku`
 - Nutzerverwaltung: `https://DEINE_DOMAIN/users`
 
 > Voraussetzungen für HTTPS:
@@ -115,6 +116,8 @@ Hinweis: Das Linux-Skript versucht fehlende venv-Pakete (z. B. `python3-venv`) a
 
 ## Dokumentation und UML
 
+- Anwenderdokumentation (Markdown): `docs/anwenderdokumentation.md`
+- Anwenderdokumentation (Web-Unterseite): `/anwenderdoku`
 - Ausführliche Doku: `docs/system-dokumentation.md`
 - Use-Case-UML: `docs/uml/anwendungsfalldiagramm.puml`
 - Aktivitäts-UML: `docs/uml/aktivitaetsdiagramm.puml`

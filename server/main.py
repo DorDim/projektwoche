@@ -513,6 +513,24 @@ def demo_client_uid(index: int) -> str:
     return f"demo-client-{index:02d}"
 
 
+def is_demo_client_uid(client_uid: str | None) -> bool:
+    if not client_uid:
+        return False
+    return client_uid.startswith("demo-client-")
+
+
+def is_demo_user(auth_context: dict[str, object] | None) -> bool:
+    if not auth_context:
+        return False
+    return str(auth_context.get("username") or "") == settings.demo_username
+
+
+def can_view_client(auth_context: dict[str, object] | None, client_uid: str | None) -> bool:
+    if not is_demo_client_uid(client_uid):
+        return True
+    return is_demo_user(auth_context)
+
+
 def _demo_permissions() -> dict[str, bool]:
     return normalize_permissions(
         {
@@ -732,9 +750,13 @@ def ensure_demo_clients_and_data(db: Session) -> None:
         db.commit()
 
 
-def get_client_by_uid_or_404(db: Session, client_uid: str) -> Client:
+def get_client_by_uid_or_404(
+    db: Session,
+    client_uid: str,
+    auth_context: dict[str, object] | None = None,
+) -> Client:
     client = db.scalar(select(Client).where(Client.client_uid == client_uid))
-    if client is None:
+    if client is None or not can_view_client(auth_context, client.client_uid):
         raise HTTPException(status_code=404, detail="Client nicht gefunden")
     return client
 
@@ -807,6 +829,11 @@ def compare_page():
 @app.get("/users")
 def users_page():
     return FileResponse(static_dir / "users.html")
+
+
+@app.get("/anwenderdoku")
+def user_documentation_page():
+    return FileResponse(static_dir / "anwenderdoku.html")
 
 
 @app.get("/health")
@@ -998,10 +1025,15 @@ def ingest_snapshot(client_uid: str, payload: HardwareSnapshotIn, db: Session = 
 
 
 @api.get("/clients", response_model=list[ClientOut], dependencies=[Depends(require_permission("view_dashboard"))])
-def list_clients(db: Session = Depends(get_db)):
+def list_clients(
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
+    db: Session = Depends(get_db),
+):
     ensure_demo_clients_and_data(db)
     now = utc_now()
     clients = db.scalars(select(Client).order_by(Client.hostname.asc())).all()
+    if not is_demo_user(auth_context):
+        clients = [client for client in clients if not is_demo_client_uid(client.client_uid)]
     out: list[ClientOut] = []
     for client in clients:
         latest = db.scalar(
@@ -1029,9 +1061,13 @@ def list_clients(db: Session = Depends(get_db)):
 
 
 @api.delete("/clients/{client_uid}", dependencies=[Depends(require_permission("delete_clients"))])
-def delete_client(client_uid: str, db: Session = Depends(get_db)):
+def delete_client(
+    client_uid: str,
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
+    db: Session = Depends(get_db),
+):
     client = db.scalar(select(Client).where(Client.client_uid == client_uid))
-    if client is None:
+    if client is None or not can_view_client(auth_context, client_uid):
         raise HTTPException(status_code=404, detail="Client nicht gefunden")
     db.delete(client)
     log_event(
@@ -1053,9 +1089,10 @@ def delete_client(client_uid: str, db: Session = Depends(get_db)):
 def list_snapshots(
     client_uid: str,
     limit: int = Query(default=200, ge=1, le=2000),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
-    client = get_client_by_uid_or_404(db, client_uid)
+    client = get_client_by_uid_or_404(db, client_uid, auth_context)
     snapshots = db.scalars(
         select(HardwareSnapshot)
         .where(HardwareSnapshot.client_id == client.id)
@@ -1076,7 +1113,7 @@ def client_analytics(
     auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
-    client = get_client_by_uid_or_404(db, client_uid)
+    client = get_client_by_uid_or_404(db, client_uid, auth_context)
     snapshots = db.scalars(
         select(HardwareSnapshot)
         .where(HardwareSnapshot.client_id == client.id)
@@ -1108,7 +1145,7 @@ def client_anomalies(
     auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
-    client = get_client_by_uid_or_404(db, client_uid)
+    client = get_client_by_uid_or_404(db, client_uid, auth_context)
     snapshots = db.scalars(
         select(HardwareSnapshot)
         .where(HardwareSnapshot.client_id == client.id)
@@ -1141,7 +1178,7 @@ def export_client_data(
     if normalized_format not in {"json", "csv", "pdf"}:
         raise HTTPException(status_code=422, detail="Format muss json, csv oder pdf sein")
 
-    client = get_client_by_uid_or_404(db, client_uid)
+    client = get_client_by_uid_or_404(db, client_uid, auth_context)
     snapshots = db.scalars(
         select(HardwareSnapshot)
         .where(HardwareSnapshot.client_id == client.id)
@@ -1242,9 +1279,15 @@ def export_client_data(
 
 
 @api.get("/compare", response_model=list[CompareClientRow], dependencies=[Depends(require_permission("view_dashboard"))])
-def compare_clients(client_uids: list[str] = Query(default=[]), db: Session = Depends(get_db)):
+def compare_clients(
+    client_uids: list[str] = Query(default=[]),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
+    db: Session = Depends(get_db),
+):
     rows: list[CompareClientRow] = []
     for client_uid in client_uids:
+        if not can_view_client(auth_context, client_uid):
+            continue
         client = db.scalar(select(Client).where(Client.client_uid == client_uid))
         if client is None:
             continue
@@ -1273,8 +1316,11 @@ def compare_clients(client_uids: list[str] = Query(default=[]), db: Session = De
 def list_alerts(
     client_uid: str | None = None,
     limit: int = Query(default=100, ge=1, le=1000),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
+    if client_uid and not can_view_client(auth_context, client_uid):
+        return []
     events_query = select(AlertEvent).order_by(AlertEvent.triggered_at.desc()).limit(limit)
     if client_uid:
         client = db.scalar(select(Client).where(Client.client_uid == client_uid))
@@ -1288,6 +1334,8 @@ def list_alerts(
         )
 
     events = db.scalars(events_query).all()
+    if not is_demo_user(auth_context):
+        events = [event for event in events if not is_demo_client_uid(event.client.client_uid)]
     out: list[AlertEventOut] = []
     for event in events:
         out.append(
@@ -1309,8 +1357,11 @@ def list_events(
     event_type: str | None = None,
     client_uid: str | None = None,
     limit: int = Query(default=300, ge=1, le=5000),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
+    if client_uid and not can_view_client(auth_context, client_uid):
+        return []
     query = select(EventLog)
     if level:
         query = query.where(EventLog.level == level)
@@ -1319,7 +1370,14 @@ def list_events(
     if client_uid:
         query = query.where(EventLog.client_uid == client_uid)
     query = query.order_by(EventLog.created_at.desc()).limit(limit)
-    return db.scalars(query).all()
+    events = db.scalars(query).all()
+    if is_demo_user(auth_context):
+        return events
+    return [
+        event
+        for event in events
+        if not is_demo_client_uid(event.client_uid) and not str(event.event_type).startswith("demo_")
+    ]
 
 
 @api.get("/alert-rules", response_model=list[AlertRuleOut], dependencies=[Depends(require_permission("view_dashboard"))])

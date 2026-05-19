@@ -3,15 +3,15 @@
   <head>
     <meta charset="UTF-8" />
     <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-    <title>Hardwareüberwachung – Vergleich</title>
+    <title>Hardwareüberwachung – Anwenderdokumentation</title>
     <link rel="stylesheet" href="/static/tailwind.css" />
     <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
   </head>
-  <body data-page="compare" class="min-h-screen bg-slate-100 text-slate-800">
+  <body data-page="docs" class="min-h-screen bg-slate-100 text-slate-800">
     <div id="loginScreen" class="flex min-h-screen items-center justify-center px-4">
       <div class="w-full max-w-md rounded-xl border border-slate-200 bg-white p-6 shadow">
         <h1 class="text-2xl font-bold">Hardwareüberwachung</h1>
-        <p class="mt-1 text-sm text-slate-500">Bitte anmelden, um die Vergleichsseite zu öffnen.</p>
+        <p class="mt-1 text-sm text-slate-500">Bitte anmelden, um die Anwenderdokumentation zu öffnen.</p>
         <form id="loginForm" class="mt-6 space-y-4">
           <label class="block text-sm font-medium text-slate-700">
             Benutzername
@@ -46,7 +46,7 @@
         <div class="mx-auto flex w-full max-w-7xl flex-col gap-4 px-4 py-4 lg:flex-row lg:items-center lg:justify-between">
           <div>
             <h1 class="text-2xl font-bold">Hardwareüberwachung</h1>
-            <p class="text-sm text-slate-500">Vergleich mehrerer Clients</p>
+            <p class="text-sm text-slate-500">Leicht verständliche Anwenderdokumentation</p>
           </div>
           <div class="flex flex-wrap items-end gap-3">
             <nav class="flex items-center gap-2 rounded-lg border border-slate-200 bg-slate-50 p-1 text-sm">
@@ -72,57 +72,68 @@
         </div>
       </header>
 
-      <main class="mx-auto grid w-full max-w-7xl gap-4 px-4 py-4">
+      <main class="mx-auto grid w-full max-w-5xl gap-4 px-4 py-4">
         <div id="errorBanner" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
 
-        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 class="mb-3 text-lg font-semibold">Clients auswählen</h2>
-          <div class="overflow-x-auto">
-            <table id="clientsTable" class="min-w-full divide-y divide-slate-200 text-sm">
+        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="text-xl font-semibold">Schnellstart</h2>
+          <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm">
+            <li>Anmelden.</li>
+            <li>Client im Dashboard auswählen.</li>
+            <li>Zeitspanne einstellen und Werte auswerten.</li>
+            <li>Bei Bedarf Export (JSON/CSV/PDF) nutzen.</li>
+          </ol>
+        </section>
+
+        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="text-xl font-semibold">Was sehe ich im Dashboard?</h2>
+          <ul class="mt-3 list-disc space-y-2 pl-5 text-sm">
+            <li><span class="font-medium">Clients:</span> alle erreichbaren Geräte mit Status.</li>
+            <li><span class="font-medium">Client-Details:</span> CPU, RAM, Laufwerke, Netzwerk, GPU.</li>
+            <li><span class="font-medium">Durchschnittswerte:</span> beziehen sich auf die gewählte Zeitspanne.</li>
+            <li><span class="font-medium">Alerts:</span> Grenzwertüberschreitungen und Warnungen.</li>
+          </ul>
+        </section>
+
+        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="text-xl font-semibold">Rollen und Rechte</h2>
+          <div class="mt-3 overflow-x-auto">
+            <table class="min-w-full divide-y divide-slate-200 text-sm">
               <thead class="bg-slate-50">
                 <tr>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600"></th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Hostname</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">UID</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Status</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">CPU Threads</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">RAM (MB)</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Min. freier Speicher (%)</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Letzter Kontakt</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Aktion</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Recht</th>
+                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Bedeutung</th>
                 </tr>
               </thead>
-              <tbody class="divide-y divide-slate-100 bg-white"></tbody>
+              <tbody class="divide-y divide-slate-100 bg-white">
+                <tr>
+                  <td class="px-3 py-2">Dashboard ansehen</td>
+                  <td class="px-3 py-2">Zugriff auf Dashboard und Vergleich.</td>
+                </tr>
+                <tr>
+                  <td class="px-3 py-2">Clients hinzufügen/löschen</td>
+                  <td class="px-3 py-2">Onboarding und Entfernen von Geräten.</td>
+                </tr>
+                <tr>
+                  <td class="px-3 py-2">Nutzer verwalten</td>
+                  <td class="px-3 py-2">Benutzerkonten erstellen, ändern und deaktivieren.</td>
+                </tr>
+                <tr>
+                  <td class="px-3 py-2">Alert-Regeln verwalten</td>
+                  <td class="px-3 py-2">Grenzwerte für Warnungen konfigurieren.</td>
+                </tr>
+              </tbody>
             </table>
           </div>
         </section>
 
-        <section class="rounded-xl border border-slate-200 bg-white p-4 shadow-sm">
-          <h2 class="mb-3 text-lg font-semibold">Vergleich (ausgewählte Clients)</h2>
-          <div id="compareSummaryCards" class="mb-4 grid gap-3 md:grid-cols-3">
-            <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
-              Wähle Clients über die Checkboxen, um den Vergleich zu sehen.
-            </div>
-          </div>
-          <div class="mb-4 rounded-lg border border-slate-200 p-3">
-            <h3 class="mb-2 font-semibold">Visueller Vergleich: RAM & freier Speicher</h3>
-            <canvas id="compareChart"></canvas>
-          </div>
-          <div class="overflow-x-auto">
-            <table id="compareTable" class="min-w-full divide-y divide-slate-200 text-sm">
-              <thead class="bg-slate-50">
-                <tr>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Hostname</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">UID</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">CPU Threads</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">RAM (MB)</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Min. freier Speicher (%)</th>
-                  <th class="px-3 py-2 text-left font-semibold text-slate-600">Uptime (s)</th>
-                </tr>
-              </thead>
-              <tbody class="divide-y divide-slate-100 bg-white"></tbody>
-            </table>
-          </div>
+        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
+          <h2 class="text-xl font-semibold">Wichtige Hinweise</h2>
+          <ul class="mt-3 list-disc space-y-2 pl-5 text-sm">
+            <li>Demo-Daten sind nur mit dem Demo-Benutzer sichtbar.</li>
+            <li>Wenn keine Clients erscheinen, zuerst auf „Aktualisieren“ klicken.</li>
+            <li>Fehlende Menüpunkte bedeuten meist fehlende Berechtigungen.</li>
+          </ul>
         </section>
       </main>
     </div>
