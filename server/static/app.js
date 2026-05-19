@@ -214,6 +214,12 @@ function parseOptionalNumber(value) {
   return Number.isFinite(parsed) ? parsed : null;
 }
 
+function formatInventoryDate(value) {
+  const normalized = normalizeDateInputValue(value);
+  if (!normalized) return "-";
+  return normalized;
+}
+
 function collectInventoryPayload() {
   return {
     location: getEl("inventoryLocation")?.value || null,
@@ -247,7 +253,12 @@ function setInventoryControlsEnabled(isEnabled) {
       element.disabled = !isEnabled;
     }
   });
+  getEl("openInventoryModalBtn")?.classList.toggle("hidden", !isEnabled);
+  getEl("inventoryReadOnlyHint")?.classList.toggle("hidden", isEnabled);
   getEl("saveInventoryBtn")?.classList.toggle("hidden", !isEnabled);
+  if (!isEnabled) {
+    closeInventoryModal();
+  }
 }
 
 function validatePasswordPolicy(password) {
@@ -568,6 +579,7 @@ function renderClients(clients) {
 function resetDetailView(message) {
   const detailsTitle = getEl("detailsTitle");
   const summaryCards = getEl("hardwareSummaryCards");
+  const inventorySummaryCards = getEl("inventorySummaryCards");
   const analyticsCards = getEl("analyticsCards");
   const anomaliesBody = getEl("anomaliesBody");
   const diskDetailsBody = getEl("diskDetailsBody");
@@ -598,6 +610,13 @@ function resetDetailView(message) {
       </div>
     `;
   }
+  if (inventorySummaryCards) {
+    inventorySummaryCards.innerHTML = `
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+        ${escapeHtml(message)}
+      </div>
+    `;
+  }
   if (anomaliesBody) {
     anomaliesBody.innerHTML =
       '<tr><td class="px-3 py-2 text-slate-500" colspan="5">Bitte Client auswählen</td></tr>';
@@ -616,6 +635,7 @@ function resetDetailView(message) {
   setFormControlValue("inventoryPurchasePrice", "");
   setFormControlValue("inventoryWarrantyUntil", "");
   setFormControlValue("inventoryNotes", "");
+  closeInventoryModal();
   if (historyChart) historyChart.destroy();
   if (uptimeChart) uptimeChart.destroy();
   if (diskChart) diskChart.destroy();
@@ -842,6 +862,30 @@ function renderHardwareDetails(snapshot) {
 }
 
 function renderInventoryDetails(client) {
+  const summaryContainer = getEl("inventorySummaryCards");
+  if (summaryContainer) {
+    const fields = [
+      ["Standort", client?.location],
+      ["Inventar-Nummer", client?.asset_tag],
+      ["Seriennummer", client?.serial_number],
+      ["Abteilung", client?.department],
+      ["Verantwortlich", client?.responsible_person],
+      ["Lieferant", client?.supplier],
+      ["Anschaffungsdatum", formatInventoryDate(client?.purchase_date)],
+      ["Anschaffungspreis (EUR)", client?.purchase_price_eur !== null && client?.purchase_price_eur !== undefined ? fmt(client.purchase_price_eur, 2) : "-"],
+      ["Garantie bis", formatInventoryDate(client?.warranty_until)],
+      ["Notizen", client?.notes || "-"],
+    ];
+    summaryContainer.innerHTML = fields
+      .map(
+        ([label, value]) => `
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div class="text-xs uppercase tracking-wide text-slate-500">${escapeHtml(label)}</div>
+          <div class="mt-1 text-sm font-semibold text-slate-800">${escapeHtml(value)}</div>
+        </div>`
+      )
+      .join("");
+  }
   setFormControlValue("inventoryLocation", client?.location || "");
   setFormControlValue("inventoryAssetTag", client?.asset_tag || "");
   setFormControlValue("inventorySerialNumber", client?.serial_number || "");
@@ -1336,6 +1380,7 @@ async function saveSelectedClientInventory() {
   }
   const payload = collectInventoryPayload();
   await apiPatch(`/api/clients/${encodeURIComponent(selectedClientUid)}/inventory`, payload);
+  closeInventoryModal();
   showToast("Inventardaten gespeichert.", "success");
   await refreshAll();
 }
@@ -1581,6 +1626,29 @@ function closeOnboardingModal() {
   modal.classList.remove("flex");
 }
 
+function openInventoryModal() {
+  const modal = getEl("inventoryModal");
+  if (!modal) return;
+  if (!hasPermission("add_clients")) {
+    showError("Keine Berechtigung zum Bearbeiten der Inventardaten.");
+    return;
+  }
+  if (!selectedClientUid) {
+    showError("Bitte zuerst einen Client auswählen.");
+    return;
+  }
+  renderInventoryDetails(currentClientMetadata);
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeInventoryModal() {
+  const modal = getEl("inventoryModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
 async function generateOnboardingToken() {
   const tokenPayload = await apiPost("/api/onboarding-tokens", {});
   onboardingTokenValue = tokenPayload.token;
@@ -1786,6 +1854,9 @@ bindEvent("openOnboardingBtn", "click", async () => {
 });
 
 bindEvent("createAlertRuleForm", "submit", createAlertRuleFromForm);
+bindEvent("openInventoryModalBtn", "click", () => {
+  openInventoryModal();
+});
 bindEvent("saveInventoryBtn", "click", async () => {
   try {
     await saveSelectedClientInventory();
@@ -1848,6 +1919,8 @@ bindEvent("editUserRole", "change", (event) => {
 bindEvent("closeEditUserModalBtn", "click", closeEditUserModal);
 bindEvent("cancelEditUserBtn", "click", closeEditUserModal);
 bindEvent("closeOnboardingBtn", "click", closeOnboardingModal);
+bindEvent("closeInventoryModalBtn", "click", closeInventoryModal);
+bindEvent("cancelInventoryModalBtn", "click", closeInventoryModal);
 bindEvent("regenerateTokenBtn", "click", async () => {
   try {
     await generateOnboardingToken();
@@ -1873,6 +1946,11 @@ bindEvent("onboardingModal", "click", (event) => {
 bindEvent("editUserModal", "click", (event) => {
   if (event.target.id === "editUserModal") {
     closeEditUserModal();
+  }
+});
+bindEvent("inventoryModal", "click", (event) => {
+  if (event.target.id === "inventoryModal") {
+    closeInventoryModal();
   }
 });
 
