@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 import re
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -103,6 +103,16 @@ class ClientOut(BaseModel):
     first_seen: datetime
     last_seen: datetime
     status: str
+    location: str | None = None
+    asset_tag: str | None = None
+    serial_number: str | None = None
+    department: str | None = None
+    responsible_person: str | None = None
+    supplier: str | None = None
+    purchase_date: date | None = None
+    purchase_price_eur: float | None = None
+    warranty_until: date | None = None
+    notes: str | None = None
     latest_snapshot: ClientSnapshotSummary | None
 
 
@@ -134,6 +144,28 @@ class CompareClientRow(BaseModel):
     ram_total_mb: float | None
     min_disk_free_percent: float | None
     uptime_seconds: int | None
+
+
+class ClientInventoryUpdateIn(BaseModel):
+    location: str | None = None
+    asset_tag: str | None = None
+    serial_number: str | None = None
+    department: str | None = None
+    responsible_person: str | None = None
+    supplier: str | None = None
+    purchase_date: date | None = None
+    purchase_price_eur: float | None = None
+    warranty_until: date | None = None
+    notes: str | None = None
+
+    @field_validator("purchase_price_eur")
+    @classmethod
+    def validate_purchase_price(cls, value: float | None) -> float | None:
+        if value is None:
+            return value
+        if value < 0:
+            raise ValueError("Anschaffungspreis darf nicht negativ sein")
+        return value
 
 
 class OnboardingTokenCreate(BaseModel):

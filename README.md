@@ -9,6 +9,7 @@ Zentrale Hardwareüberwachung mit:
 Wichtige Funktionen:
 - Export pro Client als **CSV, JSON, PDF**
 - **Durchschnittswerte je ausgewähltem Zeitraum** pro Client
+- Erweiterte **Inventarisierung** pro Gerät (z. B. Standort, Inventar-Nr., Anschaffungsdatum/-preis, Verantwortlicher)
 - **Auffälligkeitserkennung** (z. B. Temperatur, Speicher, Uptime-Reset)
 - **Ereignis- und Fehlerprotokollierung**
 - Frei konfigurierbare **Alarmregeln** mit visueller + akustischer Alarmausgabe
@@ -69,6 +70,7 @@ docker compose logs -f server
 
 Wichtige Rechte:
 - `add_clients` / `delete_clients` → nur Client-Bestand
+- `add_clients` → enthält auch Bearbeitung der Inventardaten
 - `manage_users` → Benutzerkonten anlegen/bearbeiten/löschen
 - `view_dashboard` → Dashboard/Compare lesen
 
