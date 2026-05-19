@@ -14,6 +14,8 @@ let latestAlertTimestamp = null;
 let currentClientSnapshots = [];
 let currentClientLatestSnapshot = null;
 let currentClientAnomalies = [];
+let currentClientsByUid = new Map();
+let currentClientMetadata = null;
 const currentPage = document.body?.dataset?.page || "dashboard";
 
 const REPOSITORY_URL = "https://github.com/DorDim/projektwoche.git";
@@ -117,6 +119,7 @@ function updateAuthUi() {
   getEl("eventsSection")?.classList.toggle("hidden", !hasPermission("view_events"));
   getEl("navCompareLink")?.classList.toggle("hidden", !hasPermission("view_dashboard"));
   getEl("navUsersLink")?.classList.toggle("hidden", !hasPermission("manage_users"));
+  setInventoryControlsEnabled(hasPermission("add_clients"));
 }
 
 function showLoginScreen() {
@@ -190,6 +193,61 @@ function formatDuration(seconds) {
   const hours = Math.floor((total % 86400) / 3600);
   const minutes = Math.floor((total % 3600) / 60);
   return `${days}d ${hours}h ${minutes}m`;
+}
+
+function normalizeDateInputValue(value) {
+  if (!value) return "";
+  const textValue = String(value);
+  return textValue.slice(0, 10);
+}
+
+function setFormControlValue(id, value) {
+  const element = getEl(id);
+  if (!element) return;
+  element.value = value === null || value === undefined ? "" : String(value);
+}
+
+function parseOptionalNumber(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function collectInventoryPayload() {
+  return {
+    location: getEl("inventoryLocation")?.value || null,
+    asset_tag: getEl("inventoryAssetTag")?.value || null,
+    serial_number: getEl("inventorySerialNumber")?.value || null,
+    department: getEl("inventoryDepartment")?.value || null,
+    responsible_person: getEl("inventoryResponsiblePerson")?.value || null,
+    supplier: getEl("inventorySupplier")?.value || null,
+    purchase_date: getEl("inventoryPurchaseDate")?.value || null,
+    purchase_price_eur: parseOptionalNumber(getEl("inventoryPurchasePrice")?.value),
+    warranty_until: getEl("inventoryWarrantyUntil")?.value || null,
+    notes: getEl("inventoryNotes")?.value || null,
+  };
+}
+
+function setInventoryControlsEnabled(isEnabled) {
+  [
+    "inventoryLocation",
+    "inventoryAssetTag",
+    "inventorySerialNumber",
+    "inventoryDepartment",
+    "inventoryResponsiblePerson",
+    "inventorySupplier",
+    "inventoryPurchaseDate",
+    "inventoryPurchasePrice",
+    "inventoryWarrantyUntil",
+    "inventoryNotes",
+  ].forEach((id) => {
+    const element = getEl(id);
+    if (element) {
+      element.disabled = !isEnabled;
+    }
+  });
+  getEl("saveInventoryBtn")?.classList.toggle("hidden", !isEnabled);
 }
 
 function validatePasswordPolicy(password) {
@@ -426,6 +484,7 @@ function renderClients(clients) {
   const tbody = document.querySelector("#clientsTable tbody");
   if (!tbody) return;
   tbody.innerHTML = "";
+  currentClientsByUid = new Map((clients || []).map((client) => [client.client_uid, client]));
   const canDeleteClients = hasPermission("delete_clients") && currentPage === "dashboard";
   const hasDetailsView = Boolean(getEl("detailsTitle"));
   const enableCompareSelection = Boolean(document.querySelector("#compareTable tbody"));
@@ -442,6 +501,8 @@ function renderClients(clients) {
       <td class="px-3 py-2">${selectCell}</td>
       <td class="px-3 py-2">${escapeHtml(client.hostname)}</td>
       <td class="px-3 py-2 font-mono text-xs">${escapeHtml(client.client_uid)}</td>
+      <td class="px-3 py-2">${escapeHtml(client.location || "-")}</td>
+      <td class="px-3 py-2 font-mono text-xs">${escapeHtml(client.asset_tag || "-")}</td>
       <td class="px-3 py-2 ${statusClass}">
         <div class="flex items-center gap-2 font-semibold">
           <span class="h-2.5 w-2.5 rounded-full ${statusDotClass}"></span>
@@ -544,6 +605,17 @@ function resetDetailView(message) {
   currentClientSnapshots = [];
   currentClientLatestSnapshot = null;
   currentClientAnomalies = [];
+  currentClientMetadata = null;
+  setFormControlValue("inventoryLocation", "");
+  setFormControlValue("inventoryAssetTag", "");
+  setFormControlValue("inventorySerialNumber", "");
+  setFormControlValue("inventoryDepartment", "");
+  setFormControlValue("inventoryResponsiblePerson", "");
+  setFormControlValue("inventorySupplier", "");
+  setFormControlValue("inventoryPurchaseDate", "");
+  setFormControlValue("inventoryPurchasePrice", "");
+  setFormControlValue("inventoryWarrantyUntil", "");
+  setFormControlValue("inventoryNotes", "");
   if (historyChart) historyChart.destroy();
   if (uptimeChart) uptimeChart.destroy();
   if (diskChart) diskChart.destroy();
@@ -769,6 +841,19 @@ function renderHardwareDetails(snapshot) {
   renderGpuDetails(snapshot.gpu_info || []);
 }
 
+function renderInventoryDetails(client) {
+  setFormControlValue("inventoryLocation", client?.location || "");
+  setFormControlValue("inventoryAssetTag", client?.asset_tag || "");
+  setFormControlValue("inventorySerialNumber", client?.serial_number || "");
+  setFormControlValue("inventoryDepartment", client?.department || "");
+  setFormControlValue("inventoryResponsiblePerson", client?.responsible_person || "");
+  setFormControlValue("inventorySupplier", client?.supplier || "");
+  setFormControlValue("inventoryPurchaseDate", normalizeDateInputValue(client?.purchase_date));
+  setFormControlValue("inventoryPurchasePrice", client?.purchase_price_eur ?? "");
+  setFormControlValue("inventoryWarrantyUntil", normalizeDateInputValue(client?.warranty_until));
+  setFormControlValue("inventoryNotes", client?.notes || "");
+}
+
 function minDiskFreePercent(snapshot) {
   if (!snapshot || !snapshot.disks || snapshot.disks.length === 0) return null;
   const values = snapshot.disks
@@ -991,8 +1076,10 @@ async function loadClientDetails(clientUid) {
   currentClientSnapshots = snapshots;
   currentClientLatestSnapshot = latest;
   currentClientAnomalies = anomalies || [];
+  currentClientMetadata = currentClientsByUid.get(clientUid) || null;
   getEl("detailsTitle").textContent = `Client-Details: ${latest.hostname} (${clientUid})`;
   renderHardwareDetails(latest);
+  renderInventoryDetails(currentClientMetadata);
   rerenderClientVisuals();
 }
 
@@ -1236,6 +1323,21 @@ async function exportSelectedClient(format) {
   document.body.removeChild(link);
   URL.revokeObjectURL(downloadUrl);
   showToast(`Export (${format.toUpperCase()}) gestartet.`, "success");
+}
+
+async function saveSelectedClientInventory() {
+  if (!selectedClientUid) {
+    showError("Bitte zuerst einen Client auswählen.");
+    return;
+  }
+  if (!hasPermission("add_clients")) {
+    showError("Keine Berechtigung zum Bearbeiten der Inventardaten.");
+    return;
+  }
+  const payload = collectInventoryPayload();
+  await apiPatch(`/api/clients/${encodeURIComponent(selectedClientUid)}/inventory`, payload);
+  showToast("Inventardaten gespeichert.", "success");
+  await refreshAll();
 }
 
 function permissionSummaryText(user) {
@@ -1613,6 +1715,8 @@ async function forceLogout(message = "") {
   authContext = null;
   cachedUsers = [];
   latestAlertTimestamp = null;
+  currentClientsByUid = new Map();
+  currentClientMetadata = null;
   persistApiKey();
   showLoginScreen();
   updateAuthUi();
@@ -1682,6 +1786,13 @@ bindEvent("openOnboardingBtn", "click", async () => {
 });
 
 bindEvent("createAlertRuleForm", "submit", createAlertRuleFromForm);
+bindEvent("saveInventoryBtn", "click", async () => {
+  try {
+    await saveSelectedClientInventory();
+  } catch (error) {
+    showError(error.message);
+  }
+});
 bindEvent("timeRangeSelect", "change", () => {
   rerenderClientVisuals();
 });

@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, R
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session
 
 from server.alerts import evaluate_rule, metric_value_for_rule
@@ -37,6 +37,7 @@ from server.schemas import (
     AlertRuleOut,
     AuthContextOut,
     ClientAnalyticsOut,
+    ClientInventoryUpdateIn,
     ClientOut,
     ClientSnapshotSummary,
     CompareClientRow,
@@ -88,6 +89,43 @@ DEFAULT_USER_PERMISSIONS = {
     "view_events": False,
     "ingest_data": False,
 }
+
+
+CLIENT_INVENTORY_COLUMNS: dict[str, str] = {
+    "location": "VARCHAR(255)",
+    "asset_tag": "VARCHAR(128)",
+    "serial_number": "VARCHAR(128)",
+    "department": "VARCHAR(128)",
+    "responsible_person": "VARCHAR(128)",
+    "supplier": "VARCHAR(128)",
+    "purchase_date": "DATE",
+    "purchase_price_eur": "FLOAT",
+    "warranty_until": "DATE",
+    "notes": "TEXT",
+}
+
+
+def ensure_client_inventory_columns() -> None:
+    inspector = inspect(engine)
+    existing_columns = {column["name"] for column in inspector.get_columns("clients")}
+    missing_columns = [
+        (column_name, column_type)
+        for column_name, column_type in CLIENT_INVENTORY_COLUMNS.items()
+        if column_name not in existing_columns
+    ]
+    if not missing_columns:
+        return
+
+    with engine.begin() as connection:
+        for column_name, column_type in missing_columns:
+            connection.execute(text(f"ALTER TABLE clients ADD COLUMN {column_name} {column_type}"))
+
+
+def clean_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 def log_event_safe(
@@ -689,6 +727,14 @@ def ensure_demo_clients_and_data(db: Session) -> None:
                 os_version=os_version,
                 first_seen=first_seen,
                 last_seen=now,
+                location=f"Raum {100 + index}",
+                asset_tag=f"DEMO-{index:03d}",
+                serial_number=f"SN-DEMO-{index:06d}",
+                department="Demo",
+                responsible_person="Projektteam",
+                supplier="Demo Supplier GmbH",
+                purchase_price_eur=899.0 + index * 120,
+                notes="Automatisch erzeugter Demo-Client",
             )
             db.add(client)
             db.flush()
@@ -697,6 +743,9 @@ def ensure_demo_clients_and_data(db: Session) -> None:
             client.hostname = hostname
             client.os_version = os_version
             client.last_seen = now
+            client.location = client.location or f"Raum {100 + index}"
+            client.asset_tag = client.asset_tag or f"DEMO-{index:03d}"
+            client.department = client.department or "Demo"
 
         latest = db.scalar(
             select(HardwareSnapshot)
@@ -764,6 +813,7 @@ def get_client_by_uid_or_404(
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    ensure_client_inventory_columns()
     with Session(engine) as db:
         rule = db.scalar(select(AlertRule).where(AlertRule.name == "disk_free_percent_under_5"))
         if rule is None:
@@ -1049,10 +1099,87 @@ def list_clients(
                 first_seen=first_seen,
                 last_seen=last_seen,
                 status=status,
+                location=client.location,
+                asset_tag=client.asset_tag,
+                serial_number=client.serial_number,
+                department=client.department,
+                responsible_person=client.responsible_person,
+                supplier=client.supplier,
+                purchase_date=client.purchase_date,
+                purchase_price_eur=client.purchase_price_eur,
+                warranty_until=client.warranty_until,
+                notes=client.notes,
                 latest_snapshot=snapshot_summary(latest),
             )
         )
     return out
+
+
+@api.patch(
+    "/clients/{client_uid}/inventory",
+    response_model=ClientOut,
+    dependencies=[Depends(require_permission("add_clients"))],
+)
+def update_client_inventory(
+    client_uid: str,
+    payload: ClientInventoryUpdateIn,
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
+    db: Session = Depends(get_db),
+):
+    client = get_client_by_uid_or_404(db, client_uid, auth_context)
+    latest = db.scalar(
+        select(HardwareSnapshot)
+        .where(HardwareSnapshot.client_id == client.id)
+        .order_by(HardwareSnapshot.collected_at.desc())
+        .limit(1)
+    )
+
+    client.location = clean_optional_text(payload.location)
+    client.asset_tag = clean_optional_text(payload.asset_tag)
+    client.serial_number = clean_optional_text(payload.serial_number)
+    client.department = clean_optional_text(payload.department)
+    client.responsible_person = clean_optional_text(payload.responsible_person)
+    client.supplier = clean_optional_text(payload.supplier)
+    client.purchase_date = payload.purchase_date
+    client.purchase_price_eur = payload.purchase_price_eur
+    client.warranty_until = payload.warranty_until
+    client.notes = clean_optional_text(payload.notes)
+
+    log_event(
+        db,
+        level="info",
+        event_type="client_inventory_updated",
+        message=f"Inventardaten für Client '{client_uid}' aktualisiert.",
+        client_uid=client_uid,
+        details={"requested_by": auth_context.get("username")},
+    )
+    db.commit()
+    db.refresh(client)
+
+    now = utc_now()
+    last_seen = ensure_utc(client.last_seen)
+    first_seen = ensure_utc(client.first_seen)
+    age = (now - last_seen).total_seconds()
+    status = "online" if age <= settings.stale_after_seconds else "offline"
+    return ClientOut(
+        client_uid=client.client_uid,
+        hostname=client.hostname,
+        os_version=client.os_version,
+        first_seen=first_seen,
+        last_seen=last_seen,
+        status=status,
+        location=client.location,
+        asset_tag=client.asset_tag,
+        serial_number=client.serial_number,
+        department=client.department,
+        responsible_person=client.responsible_person,
+        supplier=client.supplier,
+        purchase_date=client.purchase_date,
+        purchase_price_eur=client.purchase_price_eur,
+        warranty_until=client.warranty_until,
+        notes=client.notes,
+        latest_snapshot=snapshot_summary(latest),
+    )
 
 
 @api.delete("/clients/{client_uid}", dependencies=[Depends(require_permission("delete_clients"))])
