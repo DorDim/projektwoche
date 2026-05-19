@@ -76,28 +76,32 @@
         <div id="errorBanner" class="hidden rounded-lg border border-red-200 bg-red-50 px-4 py-3 text-sm text-red-700"></div>
 
         <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-xl font-semibold">Schnellstart</h2>
+          <h2 class="text-xl font-semibold">Vorab: Login und Navigation</h2>
           <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm">
-            <li>Anmelden.</li>
-            <li>Client im Dashboard auswählen.</li>
-            <li>Zeitspanne einstellen und Werte auswerten.</li>
-            <li>Bei Bedarf Export (JSON/CSV/PDF) nutzen.</li>
+            <li>Weboberfläche öffnen und anmelden.</li>
+            <li>Oben über die Navigation zwischen Dashboard, Vergleich, Anwenderdoku und Nutzer wechseln.</li>
+            <li>Wenn ein Menüpunkt fehlt, fehlen wahrscheinlich passende Berechtigungen.</li>
           </ol>
         </section>
 
-        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-xl font-semibold">Was sehe ich im Dashboard?</h2>
-          <ul class="mt-3 list-disc space-y-2 pl-5 text-sm">
-            <li><span class="font-medium">Clients:</span> alle erreichbaren Geräte mit Status.</li>
-            <li><span class="font-medium">Client-Details:</span> CPU, RAM, Laufwerke, Netzwerk, GPU.</li>
-            <li><span class="font-medium">Durchschnittswerte:</span> beziehen sich auf die gewählte Zeitspanne.</li>
-            <li><span class="font-medium">Alerts:</span> Grenzwertüberschreitungen und Warnungen.</li>
-          </ul>
-        </section>
-
-        <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-xl font-semibold">Rollen und Rechte</h2>
-          <div class="mt-3 overflow-x-auto">
+        <section class="rounded-xl border border-blue-200 bg-blue-50 p-5 shadow-sm">
+          <h2 class="text-xl font-semibold text-blue-900">Szenario 1: Admin richtet Benutzer ein</h2>
+          <div class="mt-3 grid gap-4 md:grid-cols-2">
+            <div>
+              <h3 class="font-semibold text-blue-900">Ziel</h3>
+              <p class="mt-1 text-sm text-blue-800">Benutzerkonten anlegen und Rechte sauber verteilen.</p>
+            </div>
+            <div>
+              <h3 class="font-semibold text-blue-900">Schritte</h3>
+              <ol class="mt-1 list-decimal space-y-1 pl-5 text-sm text-blue-800">
+                <li>Als Admin anmelden.</li>
+                <li>Seite <span class="font-medium">Nutzer</span> öffnen.</li>
+                <li>Benutzer erstellen und Rechte auswählen.</li>
+                <li>Test-Login mit dem neuen Benutzer durchführen.</li>
+              </ol>
+            </div>
+          </div>
+          <div class="mt-4 overflow-x-auto rounded-lg border border-blue-200 bg-white">
             <table class="min-w-full divide-y divide-slate-200 text-sm">
               <thead class="bg-slate-50">
                 <tr>
@@ -112,7 +116,7 @@
                 </tr>
                 <tr>
                   <td class="px-3 py-2">Clients hinzufügen/löschen</td>
-                  <td class="px-3 py-2">Onboarding und Entfernen von Geräten.</td>
+                  <td class="px-3 py-2">Geräte Onboarding und Entfernen.</td>
                 </tr>
                 <tr>
                   <td class="px-3 py-2">Nutzer verwalten</td>
@@ -127,12 +131,56 @@
           </div>
         </section>
 
+        <section class="rounded-xl border border-emerald-200 bg-emerald-50 p-5 shadow-sm">
+          <h2 class="text-xl font-semibold text-emerald-900">Szenario 2: Neuen Client anbinden</h2>
+          <p class="mt-2 text-sm text-emerald-800">Voraussetzung: Recht <span class="font-medium">Clients hinzufügen</span>.</p>
+          <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-emerald-900">
+            <li>Im Dashboard auf <span class="font-medium">Neuen Client hinzufügen</span> klicken.</li>
+            <li>Token kopieren.</li>
+            <li>Ein-Befehl für Windows oder Linux auf dem Zielsystem ausführen.</li>
+            <li>Auf <span class="font-medium">Aktualisieren</span> klicken und neuen Client prüfen.</li>
+          </ol>
+        </section>
+
+        <section class="rounded-xl border border-violet-200 bg-violet-50 p-5 shadow-sm">
+          <h2 class="text-xl font-semibold text-violet-900">Szenario 3: Tägliche Überwachung</h2>
+          <ol class="mt-3 list-decimal space-y-2 pl-5 text-sm text-violet-900">
+            <li>Client auswählen.</li>
+            <li>Zeitspanne setzen (z. B. 1h, 24h, 7d).</li>
+            <li>Durchschnittswerte, Diagramme, Auffälligkeiten und Alerts prüfen.</li>
+            <li>Bei Laufwerken Gesamtgröße (GB), Frei (%) und Frei (GB) bewerten.</li>
+          </ol>
+        </section>
+
+        <section class="rounded-xl border border-amber-200 bg-amber-50 p-5 shadow-sm">
+          <h2 class="text-xl font-semibold text-amber-900">Szenario 4: Vergleich und Export</h2>
+          <div class="grid gap-4 md:grid-cols-2">
+            <div>
+              <h3 class="font-semibold text-amber-900">Vergleich</h3>
+              <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">
+                <li>Seite <span class="font-medium">Vergleich</span> öffnen.</li>
+                <li>Clients per Checkbox auswählen.</li>
+                <li>Vergleichstabelle und Diagramm auswerten.</li>
+              </ol>
+            </div>
+            <div>
+              <h3 class="font-semibold text-amber-900">Export</h3>
+              <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-amber-900">
+                <li>Client im Dashboard auswählen.</li>
+                <li>Exportformat wählen: JSON, CSV oder PDF.</li>
+                <li>Datei speichern und weiterverwenden.</li>
+              </ol>
+            </div>
+          </div>
+        </section>
+
         <section class="rounded-xl border border-slate-200 bg-white p-5 shadow-sm">
-          <h2 class="text-xl font-semibold">Wichtige Hinweise</h2>
+          <h2 class="text-xl font-semibold">Besondere Hinweise und Troubleshooting</h2>
           <ul class="mt-3 list-disc space-y-2 pl-5 text-sm">
             <li>Demo-Daten sind nur mit dem Demo-Benutzer sichtbar.</li>
-            <li>Wenn keine Clients erscheinen, zuerst auf „Aktualisieren“ klicken.</li>
-            <li>Fehlende Menüpunkte bedeuten meist fehlende Berechtigungen.</li>
+            <li>Wenn keine Clients erscheinen: Aktualisieren, Agent prüfen, Rechte prüfen.</li>
+            <li>Wenn Login fehlschlägt: Benutzername/Passwort und Groß-/Kleinschreibung kontrollieren.</li>
+            <li>Wenn die Nutzer-Seite fehlt: Recht <span class="font-medium">Nutzer verwalten</span> fehlt.</li>
           </ul>
         </section>
       </main>

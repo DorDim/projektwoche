@@ -1,81 +1,131 @@
 # Anwenderdokumentation – Hardwareüberwachung
 
-Diese Anleitung erklärt die tägliche Nutzung der Oberfläche in einfachen Schritten.
+Diese Anleitung ist bewusst praxisnah aufgebaut. Du findest hier typische Szenarien mit klaren Schritten.
 
-## 1) Anmelden
+## Vorab: Login und Navigation
 
 1. Öffne die Weboberfläche (z. B. `https://deine-domain`).
-2. Gib Benutzername und Passwort ein.
-3. Klicke auf **Anmelden**.
+2. Melde dich mit Benutzername und Passwort an.
+3. Nutze die Navigation oben:
+   - **Dashboard**
+   - **Vergleich**
+   - **Anwenderdoku**
+   - **Nutzer** (nur mit Berechtigung)
+
+Wichtig:
+- Ohne Login sind die Unterseiten nicht zugänglich.
+- Sichtbare Bereiche hängen von den Rechten des angemeldeten Nutzers ab.
+
+---
+
+## Szenario 1: Admin startet das System für ein Team
+
+### Ziel
+Benutzer anlegen und passende Rechte vergeben.
+
+### Schritte
+1. Als Admin anmelden.
+2. Seite **Nutzer** öffnen.
+3. Unter **Neuen Benutzer erstellen**:
+   - Benutzername und Passwort setzen
+   - Rolle wählen (User oder Admin)
+   - Rechte per Checkbox auswählen
+4. Benutzer speichern und Test-Login durchführen.
+
+### Rechte kurz erklärt
+- **Dashboard ansehen**: Dashboard + Vergleich nutzen.
+- **Clients hinzufügen/löschen**: Geräte aufnehmen oder entfernen.
+- **Nutzer verwalten**: Benutzerkonten erstellen/bearbeiten/deaktivieren.
+- **Alert-Regeln verwalten**: Grenzwerte konfigurieren.
+- **Events ansehen**: Ereignisprotokoll einsehen.
+
+---
+
+## Szenario 2: Neuen Client anbinden (Onboarding)
+
+### Ziel
+Einen Rechner als neuen Monitoring-Client registrieren.
+
+### Voraussetzung
+Recht **Clients hinzufügen**.
+
+### Schritte
+1. Im Dashboard auf **Neuen Client hinzufügen** klicken.
+2. Generierten Token kopieren.
+3. Auf dem Zielsystem den Ein-Befehl aus dem Dialog ausführen (Windows oder Linux).
+4. Im Dashboard auf **Aktualisieren** klicken.
+5. Prüfen, ob der neue Client in der Liste erscheint.
+
+---
+
+## Szenario 3: Tägliche Überwachung im Dashboard
+
+### Ziel
+Gesundheitszustand eines Clients schnell beurteilen.
+
+### Schritte
+1. Im Dashboard einen Client auswählen.
+2. **Zeitspanne** setzen (z. B. 1h, 24h, 7d).
+3. Bereiche prüfen:
+   - **Durchschnittswerte (ausgewählter Zeitraum)**
+   - **Historie-Diagramme**
+   - **Erkannte Auffälligkeiten**
+   - **Aktuelle Alerts**
+4. Bei Laufwerken beachten:
+   - Gesamtgröße (GB)
+   - Freier Speicher in % und GB
 
 Hinweis:
-- Ohne Login ist kein Zugriff auf Dashboard, Vergleich oder Nutzerverwaltung möglich.
-- Welche Bereiche sichtbar sind, hängt von deinen Rechten ab.
+- Durchschnittswerte und Graphen folgen immer der oben gewählten Zeitspanne.
 
-## 2) Dashboard verstehen
+---
 
-Im Dashboard siehst du:
-- **Client-Liste** mit Online-/Offline-Status
-- **Client-Details** mit Hardwaredaten
-- **Durchschnittswerte** für den oben gewählten Zeitraum
-- **Alerts** und (bei Berechtigung) Ereignisprotokoll
+## Szenario 4: Mehrere Clients vergleichen
 
-### Zeitraum wählen
+### Ziel
+Leistung und Speicherzustand mehrerer Geräte direkt vergleichen.
 
-Über **Zeitspanne** steuerst du, welche Daten für Graphen und Durchschnittswerte genutzt werden.
+### Schritte
+1. Seite **Vergleich** öffnen.
+2. Gewünschte Clients per Checkbox markieren.
+3. Vergleichskarten und Diagramm auswerten.
+4. Bei Bedarf zurück ins Dashboard wechseln und Details eines einzelnen Clients analysieren.
 
-## 3) Clients hinzufügen (Onboarding)
+---
 
-Wenn du das Recht **Clients hinzufügen** hast:
+## Szenario 5: Daten für Bericht exportieren
 
-1. Klicke auf **Neuen Client hinzufügen**.
-2. Kopiere den generierten Token.
-3. Nutze den angezeigten Ein-Befehl für Windows oder Linux.
-4. Aktualisiere das Dashboard – der neue Client sollte erscheinen.
+### Ziel
+Client-Daten für Nachweise oder Auswertung sichern.
 
-## 4) Vergleichsseite nutzen
+### Schritte
+1. Client im Dashboard auswählen.
+2. Gewünschtes Format nutzen:
+   - **Export JSON**
+   - **Export CSV**
+   - **Export PDF**
+3. Datei lokal speichern und weiterverwenden.
 
-Unter **Vergleich**:
+---
 
-1. Mehrere Clients per Checkbox auswählen.
-2. Vergleichstabelle und Diagramm zeigen die wichtigsten Kennzahlen nebeneinander.
+## Besondere Hinweise zu Demo-Daten
 
-## 5) Daten exportieren
-
-Beim ausgewählten Client im Dashboard:
-- **Export JSON**
-- **Export CSV**
-- **Export PDF**
-
-So kannst du Daten für Reports oder externe Auswertung sichern.
-
-## 6) Nutzerverwaltung (nur mit Berechtigung)
-
-Unter **Nutzer** kannst du:
-- Benutzer anlegen
-- Rechte vergeben
-- Benutzer bearbeiten/deaktivieren
-
-Wichtige Unterschiede:
-- **Clients hinzufügen/löschen**: betrifft nur Geräte.
-- **Nutzer verwalten**: betrifft Benutzerkonten und Rollen.
-
-## 7) Rechte und Demo-Daten
-
-- Demo-Daten sind nur für den Demo-Benutzer sichtbar.
+- Demo-Daten sind **nur** für den Demo-Benutzer sichtbar.
 - Andere Benutzer sehen diese Demo-Clients nicht.
 
-## 8) Häufige Probleme
+---
+
+## Häufige Probleme (Kurzlösung)
 
 ### Login funktioniert nicht
 - Benutzername/Passwort prüfen
-- Auf Groß-/Kleinschreibung achten
+- Groß-/Kleinschreibung prüfen
 
 ### Keine Clients sichtbar
-- Prüfen, ob Agenten korrekt installiert sind
-- Auf **Aktualisieren** klicken
-- Berechtigung **Dashboard ansehen** prüfen
+- Agent-Installation auf dem Zielsystem prüfen
+- Im Dashboard auf **Aktualisieren** klicken
+- Prüfen, ob **Dashboard ansehen** aktiviert ist
 
-### Keine Nutzerverwaltung sichtbar
-- Es fehlt vermutlich die Berechtigung **Nutzer verwalten**.
+### Nutzer-Seite fehlt
+- Dem Benutzer fehlt vermutlich das Recht **Nutzer verwalten**
 
