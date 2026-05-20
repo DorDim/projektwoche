@@ -186,6 +186,6 @@ docker compose logs -f server
 
 ## 8. Zugehoerige Modellierungsartefakte
 
-- Use-Case: `docs/uml/anwendungsfalldiagramm.puml`
-- Aktivität (Server): `docs/uml/aktivitaetsdiagramm-server.puml`
-- Aktivität (Client): `docs/uml/aktivitaetsdiagramm-client.puml`
+- Use-Case-Diagramm: `docs/uml/anwendungsfalldiagramm.puml`
+- Aktivitaetsdiagramm (Server): `docs/uml/aktivitaetsdiagramm-server.puml`
+- Aktivitaetsdiagramm (Client): `docs/uml/aktivitaetsdiagramm-client.puml`
