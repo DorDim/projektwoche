@@ -1663,11 +1663,14 @@ def update_user(
     user = db.get(AppUser, user_id)
     if user is None:
         raise HTTPException(status_code=404, detail="Benutzer nicht gefunden")
+    requester_username = str(auth_context.get("username") or "")
     requester_role = str(auth_context.get("role") or "user")
     if requester_role != "admin" and user.role == "admin":
         raise HTTPException(status_code=403, detail="Nur Admins dürfen Admin-Benutzer bearbeiten")
     if payload.role == "admin" and requester_role != "admin":
         raise HTTPException(status_code=403, detail="Nur Admins dürfen Benutzer zu Admins machen")
+    if payload.is_active is False and user.username == requester_username:
+        raise HTTPException(status_code=400, detail="Der aktuell angemeldete Benutzer kann sich nicht selbst deaktivieren")
 
     if payload.password:
         user.password_hash = hash_password(payload.password)

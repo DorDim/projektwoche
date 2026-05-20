@@ -1404,14 +1404,21 @@ function openEditUserModal(userId) {
     showError("Benutzer nicht gefunden.");
     return;
   }
+  const isSelf = user.username === (authContext?.username || "");
   document.getElementById("editUserId").value = String(user.id);
   document.getElementById("editUserUsername").value = user.username;
   document.getElementById("editUserPassword").value = "";
   document.getElementById("editUserRole").value = user.role;
-  document.getElementById("editUserActive").checked = Boolean(user.is_active);
+  const activeCheckbox = document.getElementById("editUserActive");
+  activeCheckbox.checked = Boolean(user.is_active);
+  activeCheckbox.disabled = isSelf;
   applyPermissions("editPerm", user.permissions || {});
   applyRoleToPermissionForm("editPerm", user.role);
-  showEditUserHint("");
+  if (isSelf) {
+    showEditUserHint("Der aktuell angemeldete Benutzer kann sich nicht selbst deaktivieren.");
+  } else {
+    showEditUserHint("");
+  }
   const modal = document.getElementById("editUserModal");
   modal.classList.remove("hidden");
   modal.classList.add("flex");
