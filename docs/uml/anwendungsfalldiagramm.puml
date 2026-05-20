@@ -11,12 +11,12 @@ rectangle "Hardwareüberwachungssystem" {
   usecase "Dashboard aufrufen" as UC_Dashboard
   usecase "Clients vergleichen" as UC_Compare
   usecase "Client-Details anzeigen" as UC_Details
-  usecase "Inventardaten bearbeiten" as UC_Inventory
+  usecase "Inventardaten bearbeiten\n(Recht: add_clients)" as UC_Inventory
   usecase "Export erstellen\n(JSON/CSV/PDF)" as UC_Export
   usecase "Onboarding-Token erzeugen" as UC_Onboard
   usecase "Client loeschen" as UC_DeleteClient
   usecase "Alert-Regeln verwalten" as UC_Alerts
-  usecase "Events einsehen" as UC_Events
+  usecase "Events einsehen\n(Recht: view_events)" as UC_Events
   usecase "Benutzer verwalten\n(anlegen/bearbeiten/loeschen)" as UC_Users
 
   usecase "Client registrieren" as UC_Register

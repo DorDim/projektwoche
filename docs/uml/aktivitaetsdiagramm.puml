@@ -19,7 +19,12 @@ endif
 if (Seite = Dashboard?) then (ja)
   if (view_dashboard erlaubt?) then (ja)
     :Client-Liste laden;
-    :Detaildaten, Analytics, Alerts, Events abrufen;
+    :Detaildaten, Analytics und Alerts abrufen;
+    if (view_events erlaubt?) then (ja)
+      :Event-Liste abrufen;
+    else (nein)
+      :Event-Bereich ausgeblendet;
+    endif
     if (Inventar speichern?) then (ja)
       :add_clients pruefen;
       :Inventardaten aktualisieren;
