@@ -57,10 +57,6 @@ class HardwareSnapshotIn(BaseModel):
     disks: list[DiskInfo] = Field(default_factory=list)
     network_adapters: list[NetworkAdapter] = Field(default_factory=list)
     uptime_seconds: int | None = None
-    cpu_temperature_c: float | None = None
-    cpu_temperature_source: str | None = None
-    fan_speed_rpm: int | None = None
-    fan_speed_source: str | None = None
 
 
 class AlertRuleIn(BaseModel):
@@ -92,7 +88,6 @@ class ClientSnapshotSummary(BaseModel):
     cpu_threads: int | None
     ram_total_mb: float | None
     uptime_seconds: int | None
-    cpu_temperature_c: float | None
     min_disk_free_percent: float | None
 
 
@@ -131,10 +126,6 @@ class SnapshotOut(BaseModel):
     disks: list[DiskInfo]
     network_adapters: list[NetworkAdapter]
     uptime_seconds: int | None
-    cpu_temperature_c: float | None
-    cpu_temperature_source: str | None = None
-    fan_speed_rpm: int | None
-    fan_speed_source: str | None = None
 
 
 class CompareClientRow(BaseModel):
@@ -202,10 +193,8 @@ class AuthContextOut(BaseModel):
 class ClientAnalyticsOut(BaseModel):
     client_uid: str
     sample_count: int
-    avg_cpu_temperature_c: float | None
     avg_disk_free_percent_min: float | None
     avg_uptime_seconds: float | None
-    trend_cpu_temperature_c_per_hour: float | None
     trend_disk_free_percent_min_per_hour: float | None
     trend_uptime_seconds_per_hour: float | None
 

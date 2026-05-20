@@ -32,7 +32,6 @@ const PERMISSION_FIELDS = [
 const PASSWORD_POLICY_SPECIAL_CHAR_REGEX = /[^A-Za-z0-9]/;
 const RULE_METRIC_LABELS = {
   disk_free_percent_min: "Min. freier Speicher (%)",
-  cpu_temperature_c: "CPU-Temperatur (°C)",
   uptime_seconds: "Uptime (Sekunden)",
 };
 
@@ -318,20 +317,6 @@ function filterAnomaliesByTimeRange(anomalies) {
   if (hours === null) return [...anomalies];
   const threshold = Date.now() - hours * 3600 * 1000;
   return anomalies.filter((entry) => new Date(entry.collected_at).getTime() >= threshold);
-}
-
-function sourceBadge(source) {
-  if (!source) {
-    return '<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">nicht verfügbar</span>';
-  }
-  const normalized = String(source).toLowerCase();
-  const qualityClass =
-    normalized.includes("psutil") || normalized.includes("lm-sensors")
-      ? "bg-emerald-100 text-emerald-700"
-      : normalized.includes("sysfs") || normalized.includes("wmi")
-        ? "bg-amber-100 text-amber-700"
-        : "bg-violet-100 text-violet-700";
-  return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${qualityClass}">${escapeHtml(source)}</span>`;
 }
 
 async function apiGet(path) {
@@ -652,7 +637,6 @@ function buildResourceHistoryChart(canvas, snapshots) {
       ? Math.min(...s.disks.map((d) => d.free_percent || Number.POSITIVE_INFINITY))
       : null
   );
-  const cpuTemp = ordered.map((s) => s.cpu_temperature_c);
   return new Chart(canvas, {
     type: "line",
     data: {
@@ -664,19 +648,12 @@ function buildResourceHistoryChart(canvas, snapshots) {
           borderColor: "#2563eb",
           yAxisID: "y",
         },
-        {
-          label: "CPU-Temperatur (°C)",
-          data: cpuTemp,
-          borderColor: "#dc2626",
-          yAxisID: "y1",
-        },
       ],
     },
     options: {
       responsive: true,
       scales: {
         y: { position: "left" },
-        y1: { position: "right" },
       },
     },
   });
@@ -774,10 +751,6 @@ function renderHardwareSummary(snapshot) {
     { label: "CPU Max-Takt (MHz)", value: escapeHtml(fmt(snapshot.cpu_max_mhz, 2)) },
     { label: "RAM gesamt (MB)", value: escapeHtml(fmt(snapshot.ram_total_mb, 0)) },
     { label: "Uptime", value: escapeHtml(formatDuration(snapshot.uptime_seconds)) },
-    { label: "CPU-Temperatur (°C)", value: escapeHtml(fmt(snapshot.cpu_temperature_c, 1)) },
-    { label: "Temp.-Quelle", value: sourceBadge(snapshot.cpu_temperature_source), isHtml: true },
-    { label: "Lüfter (RPM)", value: escapeHtml(fmt(snapshot.fan_speed_rpm, 0)) },
-    { label: "Lüfter-Quelle", value: sourceBadge(snapshot.fan_speed_source), isHtml: true },
     { label: "Mainboard", value: escapeHtml(snapshot.motherboard_vendor) },
     { label: "BIOS/UEFI", value: escapeHtml(snapshot.bios_vendor) },
     { label: "Erfasst am", value: escapeHtml(new Date(snapshot.collected_at).toLocaleString()) },
@@ -924,16 +897,12 @@ function renderAveragesFromSnapshots(snapshots) {
     `;
     return;
   }
-  const avgCpu = averageNumber(snapshots.map((snapshot) => Number(snapshot.cpu_temperature_c)));
   const avgDiskFree = averageNumber(snapshots.map((snapshot) => minDiskFreePercent(snapshot)));
   const avgUptimeSeconds = averageNumber(snapshots.map((snapshot) => Number(snapshot.uptime_seconds)));
-  const avgFanSpeedRpm = averageNumber(snapshots.map((snapshot) => Number(snapshot.fan_speed_rpm)));
   const cards = [
     ["Samples im Zeitraum", fmt(snapshots.length, 0)],
-    ["Ø CPU-Temperatur (°C)", fmt(avgCpu, 2)],
     ["Ø Min. freier Speicher (%)", fmt(avgDiskFree, 2)],
     ["Ø Uptime (s)", fmt(avgUptimeSeconds, 0)],
-    ["Ø Lüfterdrehzahl (RPM)", fmt(avgFanSpeedRpm, 0)],
   ];
   container.innerHTML = cards
     .map(
@@ -996,7 +965,7 @@ function openChartModal(chartType) {
     modalChart = null;
   }
   if (chartType === "history") {
-    title.textContent = "Historie: Speicher & Temperatur";
+    title.textContent = "Historie: Freier Speicher";
     modalChart = buildResourceHistoryChart(canvas, filtered);
   } else if (chartType === "uptime") {
     title.textContent = "Historie: Uptime";

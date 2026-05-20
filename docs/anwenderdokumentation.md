@@ -123,7 +123,6 @@ Systemzustand schnell erkennen und bei Problemen reagieren.
    - **Frei (GB)**
 
 ### Interpretation
-- Hohe CPU-Temperatur + ansteigende Lüfterdrehzahl: mögliche Lastspitze.
 - Stark fallender freier Speicher: mögliche Speicherknappheit.
 - Uptime-Reset: Gerät wurde neu gestartet oder war kurz offline.
 
@@ -177,7 +176,7 @@ Damit bleibt die Produktivsicht sauber getrennt von Demonstrationsdaten.
 ## Checkliste für den Regelbetrieb
 
 - [ ] Täglicher Blick auf Alerts
-- [ ] Wöchentliche Prüfung der Top-Risikoclients (Speicher/Temperatur)
+- [ ] Wöchentliche Prüfung der Top-Risikoclients (Speicher/Uptime)
 - [ ] Monatliche Berechtigungsprüfung der Benutzer
 - [ ] Regelmäßiger Export für Nachweise oder Reports
 - [ ] Prüfen, ob neue Geräte korrekt erfasst werden
