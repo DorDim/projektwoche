@@ -108,7 +108,8 @@ Hinweis: Das Linux-Skript versucht fehlende venv-Pakete (z. B. `python3-venv`) a
 - `DEMO_USERNAME`, `DEMO_PASSWORD` – Login für Demo-Konto
 - `DEMO_CLIENT_COUNT` – Anzahl Demo-Clients (mindestens 5)
 - `DEMO_SNAPSHOT_INTERVAL_SECONDS` – Intervall für neue Demo-Snapshots
-- `DATABASE_URL` – optionale DB-Override-URL (leer = wird automatisch aus `POSTGRES_*` gebaut)
+- `POSTGRES_DB`, `POSTGRES_USER`, `POSTGRES_PASSWORD` – werden im Compose-Betrieb direkt für DB + Server genutzt
+- `DATABASE_URL` – nur für Nicht-Compose/externen Betrieb nötig
 - `LOG_DATA_ACCESS_EVENTS` – optionales Logging von reinen Lesezugriffen (Analytics/Anomalien/Export), Standard `false`
 
 ---

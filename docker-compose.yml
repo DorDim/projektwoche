@@ -60,7 +60,6 @@ services:
       SERVER_API_KEY: ${SERVER_API_KEY:-change-me}
       START_ADMIN_USERNAME: ${START_ADMIN_USERNAME:-admin}
       START_ADMIN_PASSWORD: ${START_ADMIN_PASSWORD:-changeme-admin-password}
-      DATABASE_URL: ${DATABASE_URL:-}
       POSTGRES_DB: ${POSTGRES_DB:-hardware_monitor}
       POSTGRES_USER: ${POSTGRES_USER:-monitor_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monitor_password}
