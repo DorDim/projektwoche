@@ -1,0 +1,54 @@
+@startuml
+start
+:HTTPS-Request trifft bei Traefik ein;
+:Weiterleitung an FastAPI;
+
+if (Session vorhanden?) then (nein)
+  :Login-Seite anzeigen;
+  :POST /api/auth/login ausfuehren;
+  if (Credentials gueltig?) then (ja)
+    :Session-Token erzeugen;
+  else (nein)
+    :401 und Fehlermeldung;
+    stop
+  endif
+endif
+
+:Auth-Kontext laden (Rolle + Rechte);
+
+if (Route = Dashboard/Compare?) then (ja)
+  if (view_dashboard erlaubt?) then (ja)
+    :Clients, Snapshots, Analytics, Alerts laden;
+    if (view_events erlaubt?) then (ja)
+      :Events laden;
+    else (nein)
+      :Events ausblenden;
+    endif
+  else (nein)
+    :403 keine Berechtigung;
+  endif
+elseif (Route = Nutzerverwaltung?) then (ja)
+  if (manage_users erlaubt?) then (ja)
+    :Benutzer anlegen/aendern/loeschen;
+    :Schutzregeln pruefen\n(kein Self-Delete, kein Admin-Delete fuer Nicht-Admins);
+  else (nein)
+    :403 keine Berechtigung;
+  endif
+elseif (Route = Alert-Regeln aendern?) then (ja)
+  if (manage_alert_rules erlaubt?) then (ja)
+    :Regeln erstellen/aktualisieren;
+  else (nein)
+    :403 keine Berechtigung;
+  endif
+elseif (Route = Inventar speichern?) then (ja)
+  if (add_clients erlaubt?) then (ja)
+    :Inventardaten je Client aktualisieren;
+  else (nein)
+    :403 keine Berechtigung;
+  endif
+endif
+
+:Event protokollieren (falls relevant);
+:HTTP-Response zurueckgeben;
+stop
+@enduml

@@ -1,0 +1,28 @@
+@startuml
+start
+:Agent starten;
+:Konfiguration laden (Server-URL, Intervall, API-Key);
+
+if (Client-ID vorhanden?) then (nein)
+  :Client-ID erzeugen und lokal speichern;
+endif
+
+repeat
+  :POST /api/clients/register;
+  if (Registrierung erfolgreich?) then (ja)
+    :Hardware- und Inventardaten sammeln;
+    :POST /api/clients/{client_uid}/snapshots;
+    if (Snapshot erfolgreich?) then (ja)
+      :Intervall abwarten;
+    else (nein)
+      :Fehler loggen;
+      :Retry mit Backoff;
+    endif
+  else (nein)
+    :Fehler loggen;
+    :Retry mit Backoff;
+  endif
+repeat while (Agent aktiv?)
+
+stop
+@enduml
