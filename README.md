@@ -109,7 +109,6 @@ bash -lc 'git clone https://github.com/DorDim/projektwoche.git && cd projektwoch
 
 - Anwenderdoku: `docs/anwenderdokumentation.md`
 - Systemdoku: `docs/system-dokumentation.md`
-- Fließtext Projektarbeit: `docs/fliesstext-projektarbeit.md`
 - UML Use-Case: `docs/uml/anwendungsfalldiagramm.puml`
 - UML Aktivität: `docs/uml/aktivitaetsdiagramm.puml`
 
