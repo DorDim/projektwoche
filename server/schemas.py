@@ -1,4 +1,4 @@
-from datetime import datetime
+from datetime import date, datetime
 import re
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator
@@ -57,10 +57,6 @@ class HardwareSnapshotIn(BaseModel):
     disks: list[DiskInfo] = Field(default_factory=list)
     network_adapters: list[NetworkAdapter] = Field(default_factory=list)
     uptime_seconds: int | None = None
-    cpu_temperature_c: float | None = None
-    cpu_temperature_source: str | None = None
-    fan_speed_rpm: int | None = None
-    fan_speed_source: str | None = None
 
 
 class AlertRuleIn(BaseModel):
@@ -92,7 +88,6 @@ class ClientSnapshotSummary(BaseModel):
     cpu_threads: int | None
     ram_total_mb: float | None
     uptime_seconds: int | None
-    cpu_temperature_c: float | None
     min_disk_free_percent: float | None
 
 
@@ -103,6 +98,16 @@ class ClientOut(BaseModel):
     first_seen: datetime
     last_seen: datetime
     status: str
+    location: str | None = None
+    asset_tag: str | None = None
+    serial_number: str | None = None
+    department: str | None = None
+    responsible_person: str | None = None
+    supplier: str | None = None
+    purchase_date: date | None = None
+    purchase_price_eur: float | None = None
+    warranty_until: date | None = None
+    notes: str | None = None
     latest_snapshot: ClientSnapshotSummary | None
 
 
@@ -121,10 +126,6 @@ class SnapshotOut(BaseModel):
     disks: list[DiskInfo]
     network_adapters: list[NetworkAdapter]
     uptime_seconds: int | None
-    cpu_temperature_c: float | None
-    cpu_temperature_source: str | None = None
-    fan_speed_rpm: int | None
-    fan_speed_source: str | None = None
 
 
 class CompareClientRow(BaseModel):
@@ -134,6 +135,28 @@ class CompareClientRow(BaseModel):
     ram_total_mb: float | None
     min_disk_free_percent: float | None
     uptime_seconds: int | None
+
+
+class ClientInventoryUpdateIn(BaseModel):
+    location: str | None = None
+    asset_tag: str | None = None
+    serial_number: str | None = None
+    department: str | None = None
+    responsible_person: str | None = None
+    supplier: str | None = None
+    purchase_date: date | None = None
+    purchase_price_eur: float | None = None
+    warranty_until: date | None = None
+    notes: str | None = None
+
+    @field_validator("purchase_price_eur")
+    @classmethod
+    def validate_purchase_price(cls, value: float | None) -> float | None:
+        if value is None:
+            return value
+        if value < 0:
+            raise ValueError("Anschaffungspreis darf nicht negativ sein")
+        return value
 
 
 class OnboardingTokenCreate(BaseModel):
@@ -170,10 +193,8 @@ class AuthContextOut(BaseModel):
 class ClientAnalyticsOut(BaseModel):
     client_uid: str
     sample_count: int
-    avg_cpu_temperature_c: float | None
     avg_disk_free_percent_min: float | None
     avg_uptime_seconds: float | None
-    trend_cpu_temperature_c_per_hour: float | None
     trend_disk_free_percent_min_per_hour: float | None
     trend_uptime_seconds_per_hour: float | None
 

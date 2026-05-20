@@ -13,7 +13,7 @@ from fastapi import APIRouter, Depends, FastAPI, Header, HTTPException, Query, R
 from fastapi.middleware.cors import CORSMiddleware
 from fastapi.responses import FileResponse, JSONResponse, Response
 from fastapi.staticfiles import StaticFiles
-from sqlalchemy import select
+from sqlalchemy import inspect, select, text
 from sqlalchemy.orm import Session
 
 from server.alerts import evaluate_rule, metric_value_for_rule
@@ -37,6 +37,7 @@ from server.schemas import (
     AlertRuleOut,
     AuthContextOut,
     ClientAnalyticsOut,
+    ClientInventoryUpdateIn,
     ClientOut,
     ClientSnapshotSummary,
     CompareClientRow,
@@ -88,6 +89,43 @@ DEFAULT_USER_PERMISSIONS = {
     "view_events": False,
     "ingest_data": False,
 }
+
+
+CLIENT_INVENTORY_COLUMNS: dict[str, str] = {
+    "location": "VARCHAR(255)",
+    "asset_tag": "VARCHAR(128)",
+    "serial_number": "VARCHAR(128)",
+    "department": "VARCHAR(128)",
+    "responsible_person": "VARCHAR(128)",
+    "supplier": "VARCHAR(128)",
+    "purchase_date": "DATE",
+    "purchase_price_eur": "FLOAT",
+    "warranty_until": "DATE",
+    "notes": "TEXT",
+}
+
+
+def ensure_client_inventory_columns() -> None:
+    inspector = inspect(engine)
+    existing_columns = {column["name"] for column in inspector.get_columns("clients")}
+    missing_columns = [
+        (column_name, column_type)
+        for column_name, column_type in CLIENT_INVENTORY_COLUMNS.items()
+        if column_name not in existing_columns
+    ]
+    if not missing_columns:
+        return
+
+    with engine.begin() as connection:
+        for column_name, column_type in missing_columns:
+            connection.execute(text(f"ALTER TABLE clients ADD COLUMN {column_name} {column_type}"))
+
+
+def clean_optional_text(value: str | None) -> str | None:
+    if value is None:
+        return None
+    normalized = value.strip()
+    return normalized or None
 
 
 def log_event_safe(
@@ -331,13 +369,11 @@ def snapshot_summary(snapshot: HardwareSnapshot | None) -> ClientSnapshotSummary
         cpu_threads=snapshot.cpu_threads,
         ram_total_mb=snapshot.ram_total_mb,
         uptime_seconds=snapshot.uptime_seconds,
-        cpu_temperature_c=snapshot.cpu_temperature_c,
         min_disk_free_percent=min_disk_free,
     )
 
 
 def to_snapshot_out(snapshot: HardwareSnapshot) -> SnapshotOut:
-    raw_payload = snapshot.raw_payload if isinstance(snapshot.raw_payload, dict) else {}
     return SnapshotOut(
         id=snapshot.id,
         collected_at=snapshot.collected_at,
@@ -353,10 +389,6 @@ def to_snapshot_out(snapshot: HardwareSnapshot) -> SnapshotOut:
         disks=snapshot.disks or [],
         network_adapters=snapshot.network_adapters or [],
         uptime_seconds=snapshot.uptime_seconds,
-        cpu_temperature_c=snapshot.cpu_temperature_c,
-        cpu_temperature_source=raw_payload.get("cpu_temperature_source"),
-        fan_speed_rpm=snapshot.fan_speed_rpm,
-        fan_speed_source=raw_payload.get("fan_speed_source"),
     )
 
 
@@ -367,7 +399,6 @@ def snapshot_min_disk_free(snapshot: HardwareSnapshot) -> float | None:
 def build_snapshot_export_rows(client: Client, snapshots: list[HardwareSnapshot]) -> list[dict]:
     rows: list[dict] = []
     for snapshot in snapshots:
-        raw_payload = snapshot.raw_payload if isinstance(snapshot.raw_payload, dict) else {}
         rows.append(
             {
                 "client_uid": client.client_uid,
@@ -378,10 +409,6 @@ def build_snapshot_export_rows(client: Client, snapshots: list[HardwareSnapshot]
                 "cpu_threads": snapshot.cpu_threads,
                 "cpu_max_mhz": snapshot.cpu_max_mhz,
                 "ram_total_mb": snapshot.ram_total_mb,
-                "cpu_temperature_c": snapshot.cpu_temperature_c,
-                "cpu_temperature_source": raw_payload.get("cpu_temperature_source"),
-                "fan_speed_rpm": snapshot.fan_speed_rpm,
-                "fan_speed_source": raw_payload.get("fan_speed_source"),
                 "uptime_seconds": snapshot.uptime_seconds,
                 "motherboard_vendor": snapshot.motherboard_vendor,
                 "bios_vendor": snapshot.bios_vendor,
@@ -405,17 +432,13 @@ def analytics_for_snapshots(client_uid: str, snapshots: list[HardwareSnapshot]) 
         return ClientAnalyticsOut(
             client_uid=client_uid,
             sample_count=0,
-            avg_cpu_temperature_c=None,
             avg_disk_free_percent_min=None,
             avg_uptime_seconds=None,
-            trend_cpu_temperature_c_per_hour=None,
             trend_disk_free_percent_min_per_hour=None,
             trend_uptime_seconds_per_hour=None,
         )
 
     ordered = sorted(snapshots, key=lambda item: item.collected_at)
-    times = [ensure_utc(snapshot.collected_at) for snapshot in ordered]
-    cpu_values = [float(snapshot.cpu_temperature_c) for snapshot in ordered if snapshot.cpu_temperature_c is not None]
     disk_values = [
         float(value)
         for snapshot in ordered
@@ -423,7 +446,6 @@ def analytics_for_snapshots(client_uid: str, snapshots: list[HardwareSnapshot]) 
     ]
     uptime_values = [float(snapshot.uptime_seconds) for snapshot in ordered if snapshot.uptime_seconds is not None]
 
-    cpu_points = [(ensure_utc(s.collected_at), float(s.cpu_temperature_c)) for s in ordered if s.cpu_temperature_c is not None]
     disk_points = [
         (ensure_utc(s.collected_at), float(value))
         for s in ordered
@@ -434,15 +456,8 @@ def analytics_for_snapshots(client_uid: str, snapshots: list[HardwareSnapshot]) 
     return ClientAnalyticsOut(
         client_uid=client_uid,
         sample_count=len(ordered),
-        avg_cpu_temperature_c=round(statistics.fmean(cpu_values), 3) if cpu_values else None,
         avg_disk_free_percent_min=round(statistics.fmean(disk_values), 3) if disk_values else None,
         avg_uptime_seconds=round(statistics.fmean(uptime_values), 3) if uptime_values else None,
-        trend_cpu_temperature_c_per_hour=round(
-            trend_per_hour([point[1] for point in cpu_points], [point[0] for point in cpu_points]),
-            5,
-        )
-        if len(cpu_points) >= 2
-        else None,
         trend_disk_free_percent_min_per_hour=round(
             trend_per_hour([point[1] for point in disk_points], [point[0] for point in disk_points]),
             5,
@@ -480,18 +495,6 @@ def detect_anomalies(snapshots: list[HardwareSnapshot]) -> list[AnomalyOut]:
                 )
             )
 
-        if snapshot.cpu_temperature_c is not None and snapshot.cpu_temperature_c > 85:
-            anomalies.append(
-                AnomalyOut(
-                    collected_at=collected,
-                    type="cpu_temperature",
-                    severity="high",
-                    message=f"Hohe CPU-Temperatur erkannt: {snapshot.cpu_temperature_c:.2f}°C",
-                    value=float(snapshot.cpu_temperature_c),
-                    threshold=85.0,
-                )
-            )
-
         if previous_uptime is not None and snapshot.uptime_seconds is not None:
             if snapshot.uptime_seconds < previous_uptime * 0.5:
                 anomalies.append(
@@ -511,6 +514,24 @@ def detect_anomalies(snapshots: list[HardwareSnapshot]) -> list[AnomalyOut]:
 
 def demo_client_uid(index: int) -> str:
     return f"demo-client-{index:02d}"
+
+
+def is_demo_client_uid(client_uid: str | None) -> bool:
+    if not client_uid:
+        return False
+    return client_uid.startswith("demo-client-")
+
+
+def is_demo_user(auth_context: dict[str, object] | None) -> bool:
+    if not auth_context:
+        return False
+    return str(auth_context.get("username") or "") == settings.demo_username
+
+
+def can_view_client(auth_context: dict[str, object] | None, client_uid: str | None) -> bool:
+    if not is_demo_client_uid(client_uid):
+        return True
+    return is_demo_user(auth_context)
 
 
 def _demo_permissions() -> dict[str, bool]:
@@ -577,12 +598,6 @@ def _build_demo_snapshot(client: Client, client_index: int, collected_at: dateti
     cpu_cores = max(2, cpu_threads // 2)
     ram_total_mb = float(8192 + client_index * 2048)
 
-    base_temp = 46 + (client_index * 1.4) + 7 * math.sin((epoch_minutes / 17.0) + client_index)
-    temp_spike = 20 if client_index % 3 == 0 and epoch_minutes % 180 < 8 else 0
-    cpu_temperature = round(max(28.0, min(98.0, base_temp + temp_spike)), 2)
-
-    fan_speed = int(max(700, min(4200, 900 + cpu_temperature * 16 + (client_index * 110))))
-
     disk_total_gb = float(256 + client_index * 128)
     disk_free_percent = 38 + 15 * math.sin((epoch_minutes / 23.0) + client_index)
     if client_index % 4 == 0 and epoch_minutes % 200 < 10:
@@ -614,11 +629,6 @@ def _build_demo_snapshot(client: Client, client_index: int, collected_at: dateti
         }
     ]
 
-    raw_payload = {
-        "cpu_temperature_source": "demo-generator",
-        "fan_speed_source": "demo-generator",
-    }
-
     return HardwareSnapshot(
         client_id=client.id,
         collected_at=collected_at,
@@ -642,9 +652,7 @@ def _build_demo_snapshot(client: Client, client_index: int, collected_at: dateti
         disks=disks,
         network_adapters=network,
         uptime_seconds=uptime_seconds,
-        cpu_temperature_c=cpu_temperature,
-        fan_speed_rpm=fan_speed,
-        raw_payload=raw_payload,
+        raw_payload={},
     )
 
 
@@ -671,6 +679,14 @@ def ensure_demo_clients_and_data(db: Session) -> None:
                 os_version=os_version,
                 first_seen=first_seen,
                 last_seen=now,
+                location=f"Raum {100 + index}",
+                asset_tag=f"DEMO-{index:03d}",
+                serial_number=f"SN-DEMO-{index:06d}",
+                department="Demo",
+                responsible_person="Projektteam",
+                supplier="Demo Supplier GmbH",
+                purchase_price_eur=899.0 + index * 120,
+                notes="Automatisch erzeugter Demo-Client",
             )
             db.add(client)
             db.flush()
@@ -679,6 +695,9 @@ def ensure_demo_clients_and_data(db: Session) -> None:
             client.hostname = hostname
             client.os_version = os_version
             client.last_seen = now
+            client.location = client.location or f"Raum {100 + index}"
+            client.asset_tag = client.asset_tag or f"DEMO-{index:03d}"
+            client.department = client.department or "Demo"
 
         latest = db.scalar(
             select(HardwareSnapshot)
@@ -732,9 +751,13 @@ def ensure_demo_clients_and_data(db: Session) -> None:
         db.commit()
 
 
-def get_client_by_uid_or_404(db: Session, client_uid: str) -> Client:
+def get_client_by_uid_or_404(
+    db: Session,
+    client_uid: str,
+    auth_context: dict[str, object] | None = None,
+) -> Client:
     client = db.scalar(select(Client).where(Client.client_uid == client_uid))
-    if client is None:
+    if client is None or not can_view_client(auth_context, client.client_uid):
         raise HTTPException(status_code=404, detail="Client nicht gefunden")
     return client
 
@@ -742,6 +765,7 @@ def get_client_by_uid_or_404(db: Session, client_uid: str) -> Client:
 @app.on_event("startup")
 def startup():
     Base.metadata.create_all(bind=engine)
+    ensure_client_inventory_columns()
     with Session(engine) as db:
         rule = db.scalar(select(AlertRule).where(AlertRule.name == "disk_free_percent_under_5"))
         if rule is None:
@@ -944,8 +968,6 @@ def ingest_snapshot(client_uid: str, payload: HardwareSnapshotIn, db: Session = 
         disks=[disk.model_dump() for disk in payload.disks],
         network_adapters=[adapter.model_dump() for adapter in payload.network_adapters],
         uptime_seconds=payload.uptime_seconds,
-        cpu_temperature_c=payload.cpu_temperature_c,
-        fan_speed_rpm=payload.fan_speed_rpm,
         raw_payload=payload.model_dump(mode="json"),
     )
     db.add(snapshot)
@@ -998,10 +1020,15 @@ def ingest_snapshot(client_uid: str, payload: HardwareSnapshotIn, db: Session = 
 
 
 @api.get("/clients", response_model=list[ClientOut], dependencies=[Depends(require_permission("view_dashboard"))])
-def list_clients(db: Session = Depends(get_db)):
+def list_clients(
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
+    db: Session = Depends(get_db),
+):
     ensure_demo_clients_and_data(db)
     now = utc_now()
     clients = db.scalars(select(Client).order_by(Client.hostname.asc())).all()
+    if not is_demo_user(auth_context):
+        clients = [client for client in clients if not is_demo_client_uid(client.client_uid)]
     out: list[ClientOut] = []
     for client in clients:
         latest = db.scalar(
@@ -1022,16 +1049,97 @@ def list_clients(db: Session = Depends(get_db)):
                 first_seen=first_seen,
                 last_seen=last_seen,
                 status=status,
+                location=client.location,
+                asset_tag=client.asset_tag,
+                serial_number=client.serial_number,
+                department=client.department,
+                responsible_person=client.responsible_person,
+                supplier=client.supplier,
+                purchase_date=client.purchase_date,
+                purchase_price_eur=client.purchase_price_eur,
+                warranty_until=client.warranty_until,
+                notes=client.notes,
                 latest_snapshot=snapshot_summary(latest),
             )
         )
     return out
 
 
+@api.patch(
+    "/clients/{client_uid}/inventory",
+    response_model=ClientOut,
+    dependencies=[Depends(require_permission("add_clients"))],
+)
+def update_client_inventory(
+    client_uid: str,
+    payload: ClientInventoryUpdateIn,
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
+    db: Session = Depends(get_db),
+):
+    client = get_client_by_uid_or_404(db, client_uid, auth_context)
+    latest = db.scalar(
+        select(HardwareSnapshot)
+        .where(HardwareSnapshot.client_id == client.id)
+        .order_by(HardwareSnapshot.collected_at.desc())
+        .limit(1)
+    )
+
+    client.location = clean_optional_text(payload.location)
+    client.asset_tag = clean_optional_text(payload.asset_tag)
+    client.serial_number = clean_optional_text(payload.serial_number)
+    client.department = clean_optional_text(payload.department)
+    client.responsible_person = clean_optional_text(payload.responsible_person)
+    client.supplier = clean_optional_text(payload.supplier)
+    client.purchase_date = payload.purchase_date
+    client.purchase_price_eur = payload.purchase_price_eur
+    client.warranty_until = payload.warranty_until
+    client.notes = clean_optional_text(payload.notes)
+
+    log_event(
+        db,
+        level="info",
+        event_type="client_inventory_updated",
+        message=f"Inventardaten für Client '{client_uid}' aktualisiert.",
+        client_uid=client_uid,
+        details={"requested_by": auth_context.get("username")},
+    )
+    db.commit()
+    db.refresh(client)
+
+    now = utc_now()
+    last_seen = ensure_utc(client.last_seen)
+    first_seen = ensure_utc(client.first_seen)
+    age = (now - last_seen).total_seconds()
+    status = "online" if age <= settings.stale_after_seconds else "offline"
+    return ClientOut(
+        client_uid=client.client_uid,
+        hostname=client.hostname,
+        os_version=client.os_version,
+        first_seen=first_seen,
+        last_seen=last_seen,
+        status=status,
+        location=client.location,
+        asset_tag=client.asset_tag,
+        serial_number=client.serial_number,
+        department=client.department,
+        responsible_person=client.responsible_person,
+        supplier=client.supplier,
+        purchase_date=client.purchase_date,
+        purchase_price_eur=client.purchase_price_eur,
+        warranty_until=client.warranty_until,
+        notes=client.notes,
+        latest_snapshot=snapshot_summary(latest),
+    )
+
+
 @api.delete("/clients/{client_uid}", dependencies=[Depends(require_permission("delete_clients"))])
-def delete_client(client_uid: str, db: Session = Depends(get_db)):
+def delete_client(
+    client_uid: str,
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
+    db: Session = Depends(get_db),
+):
     client = db.scalar(select(Client).where(Client.client_uid == client_uid))
-    if client is None:
+    if client is None or not can_view_client(auth_context, client_uid):
         raise HTTPException(status_code=404, detail="Client nicht gefunden")
     db.delete(client)
     log_event(
@@ -1053,9 +1161,10 @@ def delete_client(client_uid: str, db: Session = Depends(get_db)):
 def list_snapshots(
     client_uid: str,
     limit: int = Query(default=200, ge=1, le=2000),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
-    client = get_client_by_uid_or_404(db, client_uid)
+    client = get_client_by_uid_or_404(db, client_uid, auth_context)
     snapshots = db.scalars(
         select(HardwareSnapshot)
         .where(HardwareSnapshot.client_id == client.id)
@@ -1076,7 +1185,7 @@ def client_analytics(
     auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
-    client = get_client_by_uid_or_404(db, client_uid)
+    client = get_client_by_uid_or_404(db, client_uid, auth_context)
     snapshots = db.scalars(
         select(HardwareSnapshot)
         .where(HardwareSnapshot.client_id == client.id)
@@ -1108,7 +1217,7 @@ def client_anomalies(
     auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
-    client = get_client_by_uid_or_404(db, client_uid)
+    client = get_client_by_uid_or_404(db, client_uid, auth_context)
     snapshots = db.scalars(
         select(HardwareSnapshot)
         .where(HardwareSnapshot.client_id == client.id)
@@ -1141,7 +1250,7 @@ def export_client_data(
     if normalized_format not in {"json", "csv", "pdf"}:
         raise HTTPException(status_code=422, detail="Format muss json, csv oder pdf sein")
 
-    client = get_client_by_uid_or_404(db, client_uid)
+    client = get_client_by_uid_or_404(db, client_uid, auth_context)
     snapshots = db.scalars(
         select(HardwareSnapshot)
         .where(HardwareSnapshot.client_id == client.id)
@@ -1182,10 +1291,6 @@ def export_client_data(
             "cpu_threads",
             "cpu_max_mhz",
             "ram_total_mb",
-            "cpu_temperature_c",
-            "cpu_temperature_source",
-            "fan_speed_rpm",
-            "fan_speed_source",
             "uptime_seconds",
             "motherboard_vendor",
             "bios_vendor",
@@ -1208,15 +1313,113 @@ def export_client_data(
     except Exception as exc:  # noqa: BLE001
         raise HTTPException(status_code=500, detail=f"PDF-Export nicht verfügbar: {exc}") from exc
 
+    def pdf_value(value: object) -> str:
+        if value is None:
+            return "-"
+        if isinstance(value, float):
+            return f"{value:.2f}"
+        return str(value)
+
+    latest_snapshot = snapshots[0] if snapshots else None
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=10)
     pdf.add_page()
+    effective_width = getattr(pdf, "epw", 180)
+
     pdf.set_font("Helvetica", "B", 14)
     pdf.cell(0, 10, txt=f"Hardware-Export für {client.hostname} ({client_uid})", ln=True)
     pdf.set_font("Helvetica", size=9)
     pdf.cell(0, 8, txt=f"Snapshots: {len(rows)}", ln=True)
+    pdf.cell(0, 8, txt=f"Exportiert am: {utc_now().isoformat()}", ln=True)
     pdf.ln(2)
-    effective_width = getattr(pdf, "epw", 180)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 8, txt="Inventardaten", ln=True)
+    pdf.set_font("Helvetica", size=9)
+    inventory_lines = [
+        f"Standort: {pdf_value(client.location)}",
+        f"Inventar-Nr.: {pdf_value(client.asset_tag)}",
+        f"Seriennummer: {pdf_value(client.serial_number)}",
+        f"Abteilung: {pdf_value(client.department)}",
+        f"Verantwortlich: {pdf_value(client.responsible_person)}",
+        f"Lieferant: {pdf_value(client.supplier)}",
+        f"Anschaffungsdatum: {pdf_value(client.purchase_date.isoformat() if client.purchase_date else None)}",
+        f"Anschaffungspreis (EUR): {pdf_value(client.purchase_price_eur)}",
+        f"Garantie bis: {pdf_value(client.warranty_until.isoformat() if client.warranty_until else None)}",
+        f"Notizen: {pdf_value(client.notes)}",
+    ]
+    for line in inventory_lines:
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(effective_width, 6, line)
+    pdf.ln(1)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 8, txt="Aktueller Stand (letzter Snapshot)", ln=True)
+    pdf.set_font("Helvetica", size=9)
+    if latest_snapshot is None:
+        pdf.set_x(pdf.l_margin)
+        pdf.multi_cell(effective_width, 6, "Keine Snapshot-Daten vorhanden.")
+    else:
+        latest_lines = [
+            f"Zeitpunkt: {latest_snapshot.collected_at.isoformat()}",
+            f"Hostname: {pdf_value(latest_snapshot.hostname)} | OS: {pdf_value(latest_snapshot.os_version)}",
+            (
+                f"CPU Kerne/Threads: {pdf_value(latest_snapshot.cpu_cores)} / {pdf_value(latest_snapshot.cpu_threads)} | "
+                f"CPU Max MHz: {pdf_value(latest_snapshot.cpu_max_mhz)}"
+            ),
+            (
+                f"RAM gesamt (MB): {pdf_value(latest_snapshot.ram_total_mb)} | "
+                f"Uptime (s): {pdf_value(latest_snapshot.uptime_seconds)}"
+            ),
+            (
+                f"Mainboard: {pdf_value(latest_snapshot.motherboard_vendor)} | "
+                f"BIOS/UEFI: {pdf_value(latest_snapshot.bios_vendor)}"
+            ),
+            f"Min. freier Speicher (%): {pdf_value(snapshot_min_disk_free(latest_snapshot))}",
+        ]
+        disks = latest_snapshot.disks if isinstance(latest_snapshot.disks, list) else []
+        if disks:
+            disk_summary = ", ".join(
+                f"{disk.get('mountpoint', '?')} ({pdf_value(disk.get('free_percent'))}%)"
+                for disk in disks[:5]
+                if isinstance(disk, dict)
+            )
+            if disk_summary:
+                latest_lines.append(f"Laufwerke: {disk_summary}")
+        adapters = (
+            latest_snapshot.network_adapters
+            if isinstance(latest_snapshot.network_adapters, list)
+            else []
+        )
+        if adapters:
+            adapter_summary = ", ".join(
+                (
+                    f"{adapter.get('name', '?')} "
+                    f"{('/'.join(adapter.get('ipv4', []))) if isinstance(adapter.get('ipv4'), list) else ''}"
+                ).strip()
+                for adapter in adapters[:5]
+                if isinstance(adapter, dict)
+            )
+            if adapter_summary:
+                latest_lines.append(f"Netzwerk: {adapter_summary}")
+        gpus = latest_snapshot.gpu_info if isinstance(latest_snapshot.gpu_info, list) else []
+        if gpus:
+            gpu_summary = ", ".join(
+                str(gpu.get("name") or gpu.get("model") or "?")
+                for gpu in gpus[:5]
+                if isinstance(gpu, dict)
+            )
+            if gpu_summary:
+                latest_lines.append(f"GPU: {gpu_summary}")
+
+        for line in latest_lines:
+            pdf.set_x(pdf.l_margin)
+            pdf.multi_cell(effective_width, 6, line)
+    pdf.ln(1)
+
+    pdf.set_font("Helvetica", "B", 11)
+    pdf.cell(0, 8, txt="Snapshot-Verlauf (max. 200 Eintraege)", ln=True)
+    pdf.set_font("Helvetica", size=9)
     for row in rows[:200]:
         pdf.set_x(pdf.l_margin)
         pdf.multi_cell(
@@ -1224,8 +1427,7 @@ def export_client_data(
             6,
             (
                 f"{row['collected_at']} | CPU Threads: {row['cpu_threads']} | RAM: {row['ram_total_mb']} MB | "
-                f"Disk frei min: {row['min_disk_free_percent']}% | Temp: {row['cpu_temperature_c']} ({row.get('cpu_temperature_source')}) | "
-                f"Fan: {row.get('fan_speed_rpm')} ({row.get('fan_speed_source')})"
+                f"Disk frei min: {row['min_disk_free_percent']}%"
             ),
         )
     pdf_bytes = pdf.output(dest="S")
@@ -1242,9 +1444,15 @@ def export_client_data(
 
 
 @api.get("/compare", response_model=list[CompareClientRow], dependencies=[Depends(require_permission("view_dashboard"))])
-def compare_clients(client_uids: list[str] = Query(default=[]), db: Session = Depends(get_db)):
+def compare_clients(
+    client_uids: list[str] = Query(default=[]),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
+    db: Session = Depends(get_db),
+):
     rows: list[CompareClientRow] = []
     for client_uid in client_uids:
+        if not can_view_client(auth_context, client_uid):
+            continue
         client = db.scalar(select(Client).where(Client.client_uid == client_uid))
         if client is None:
             continue
@@ -1273,8 +1481,11 @@ def compare_clients(client_uids: list[str] = Query(default=[]), db: Session = De
 def list_alerts(
     client_uid: str | None = None,
     limit: int = Query(default=100, ge=1, le=1000),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
+    if client_uid and not can_view_client(auth_context, client_uid):
+        return []
     events_query = select(AlertEvent).order_by(AlertEvent.triggered_at.desc()).limit(limit)
     if client_uid:
         client = db.scalar(select(Client).where(Client.client_uid == client_uid))
@@ -1288,6 +1499,8 @@ def list_alerts(
         )
 
     events = db.scalars(events_query).all()
+    if not is_demo_user(auth_context):
+        events = [event for event in events if not is_demo_client_uid(event.client.client_uid)]
     out: list[AlertEventOut] = []
     for event in events:
         out.append(
@@ -1309,8 +1522,11 @@ def list_events(
     event_type: str | None = None,
     client_uid: str | None = None,
     limit: int = Query(default=300, ge=1, le=5000),
+    auth_context: dict[str, object] = Depends(resolve_auth_context),
     db: Session = Depends(get_db),
 ):
+    if client_uid and not can_view_client(auth_context, client_uid):
+        return []
     query = select(EventLog)
     if level:
         query = query.where(EventLog.level == level)
@@ -1319,7 +1535,14 @@ def list_events(
     if client_uid:
         query = query.where(EventLog.client_uid == client_uid)
     query = query.order_by(EventLog.created_at.desc()).limit(limit)
-    return db.scalars(query).all()
+    events = db.scalars(query).all()
+    if is_demo_user(auth_context):
+        return events
+    return [
+        event
+        for event in events
+        if not is_demo_client_uid(event.client_uid) and not str(event.event_type).startswith("demo_")
+    ]
 
 
 @api.get("/alert-rules", response_model=list[AlertRuleOut], dependencies=[Depends(require_permission("view_dashboard"))])
