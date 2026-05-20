@@ -10,7 +10,9 @@ def _env_bool(name: str, default: str = "false") -> bool:
 
 @dataclass
 class Settings:
-    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./hardware_monitor.db")
+    database_url: str = os.getenv(
+        "DATABASE_URL", "postgresql+psycopg://monitor_user:monitor_password@postgres:5432/hardware_monitor"
+    )
     api_key: str = os.getenv("SERVER_API_KEY", "change-me")
     start_admin_password: str | None = os.getenv("START_ADMIN_PASSWORD")
     start_admin_username: str = os.getenv("START_ADMIN_USERNAME", "admin")
@@ -34,6 +36,13 @@ class Settings:
             url = "postgresql+psycopg://" + url[len("postgres://") :]
         elif url.startswith("postgresql://"):
             url = "postgresql+psycopg://" + url[len("postgresql://") :]
+
+        if url.startswith("sqlite"):
+            raise ValueError("SQLite wird nicht mehr unterstützt. Bitte PostgreSQL über DATABASE_URL konfigurieren.")
+        if not url.startswith("postgresql+psycopg://"):
+            raise ValueError(
+                "Ungültige DATABASE_URL. Erwartet wird ein PostgreSQL-URL im Format postgresql+psycopg://..."
+            )
 
         if self.db_sslmode and url.startswith("postgresql+psycopg://"):
             parts = urlsplit(url)

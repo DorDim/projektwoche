@@ -369,13 +369,11 @@ def snapshot_summary(snapshot: HardwareSnapshot | None) -> ClientSnapshotSummary
         cpu_threads=snapshot.cpu_threads,
         ram_total_mb=snapshot.ram_total_mb,
         uptime_seconds=snapshot.uptime_seconds,
-        cpu_temperature_c=snapshot.cpu_temperature_c,
         min_disk_free_percent=min_disk_free,
     )
 
 
 def to_snapshot_out(snapshot: HardwareSnapshot) -> SnapshotOut:
-    raw_payload = snapshot.raw_payload if isinstance(snapshot.raw_payload, dict) else {}
     return SnapshotOut(
         id=snapshot.id,
         collected_at=snapshot.collected_at,
@@ -391,10 +389,6 @@ def to_snapshot_out(snapshot: HardwareSnapshot) -> SnapshotOut:
         disks=snapshot.disks or [],
         network_adapters=snapshot.network_adapters or [],
         uptime_seconds=snapshot.uptime_seconds,
-        cpu_temperature_c=snapshot.cpu_temperature_c,
-        cpu_temperature_source=raw_payload.get("cpu_temperature_source"),
-        fan_speed_rpm=snapshot.fan_speed_rpm,
-        fan_speed_source=raw_payload.get("fan_speed_source"),
     )
 
 
@@ -405,7 +399,6 @@ def snapshot_min_disk_free(snapshot: HardwareSnapshot) -> float | None:
 def build_snapshot_export_rows(client: Client, snapshots: list[HardwareSnapshot]) -> list[dict]:
     rows: list[dict] = []
     for snapshot in snapshots:
-        raw_payload = snapshot.raw_payload if isinstance(snapshot.raw_payload, dict) else {}
         rows.append(
             {
                 "client_uid": client.client_uid,
@@ -416,10 +409,6 @@ def build_snapshot_export_rows(client: Client, snapshots: list[HardwareSnapshot]
                 "cpu_threads": snapshot.cpu_threads,
                 "cpu_max_mhz": snapshot.cpu_max_mhz,
                 "ram_total_mb": snapshot.ram_total_mb,
-                "cpu_temperature_c": snapshot.cpu_temperature_c,
-                "cpu_temperature_source": raw_payload.get("cpu_temperature_source"),
-                "fan_speed_rpm": snapshot.fan_speed_rpm,
-                "fan_speed_source": raw_payload.get("fan_speed_source"),
                 "uptime_seconds": snapshot.uptime_seconds,
                 "motherboard_vendor": snapshot.motherboard_vendor,
                 "bios_vendor": snapshot.bios_vendor,
@@ -443,17 +432,13 @@ def analytics_for_snapshots(client_uid: str, snapshots: list[HardwareSnapshot]) 
         return ClientAnalyticsOut(
             client_uid=client_uid,
             sample_count=0,
-            avg_cpu_temperature_c=None,
             avg_disk_free_percent_min=None,
             avg_uptime_seconds=None,
-            trend_cpu_temperature_c_per_hour=None,
             trend_disk_free_percent_min_per_hour=None,
             trend_uptime_seconds_per_hour=None,
         )
 
     ordered = sorted(snapshots, key=lambda item: item.collected_at)
-    times = [ensure_utc(snapshot.collected_at) for snapshot in ordered]
-    cpu_values = [float(snapshot.cpu_temperature_c) for snapshot in ordered if snapshot.cpu_temperature_c is not None]
     disk_values = [
         float(value)
         for snapshot in ordered
@@ -461,7 +446,6 @@ def analytics_for_snapshots(client_uid: str, snapshots: list[HardwareSnapshot]) 
     ]
     uptime_values = [float(snapshot.uptime_seconds) for snapshot in ordered if snapshot.uptime_seconds is not None]
 
-    cpu_points = [(ensure_utc(s.collected_at), float(s.cpu_temperature_c)) for s in ordered if s.cpu_temperature_c is not None]
     disk_points = [
         (ensure_utc(s.collected_at), float(value))
         for s in ordered
@@ -472,15 +456,8 @@ def analytics_for_snapshots(client_uid: str, snapshots: list[HardwareSnapshot]) 
     return ClientAnalyticsOut(
         client_uid=client_uid,
         sample_count=len(ordered),
-        avg_cpu_temperature_c=round(statistics.fmean(cpu_values), 3) if cpu_values else None,
         avg_disk_free_percent_min=round(statistics.fmean(disk_values), 3) if disk_values else None,
         avg_uptime_seconds=round(statistics.fmean(uptime_values), 3) if uptime_values else None,
-        trend_cpu_temperature_c_per_hour=round(
-            trend_per_hour([point[1] for point in cpu_points], [point[0] for point in cpu_points]),
-            5,
-        )
-        if len(cpu_points) >= 2
-        else None,
         trend_disk_free_percent_min_per_hour=round(
             trend_per_hour([point[1] for point in disk_points], [point[0] for point in disk_points]),
             5,
@@ -515,18 +492,6 @@ def detect_anomalies(snapshots: list[HardwareSnapshot]) -> list[AnomalyOut]:
                     message=f"Kritisch niedriger freier Speicher: {min_disk:.2f}%",
                     value=min_disk,
                     threshold=10.0,
-                )
-            )
-
-        if snapshot.cpu_temperature_c is not None and snapshot.cpu_temperature_c > 85:
-            anomalies.append(
-                AnomalyOut(
-                    collected_at=collected,
-                    type="cpu_temperature",
-                    severity="high",
-                    message=f"Hohe CPU-Temperatur erkannt: {snapshot.cpu_temperature_c:.2f}°C",
-                    value=float(snapshot.cpu_temperature_c),
-                    threshold=85.0,
                 )
             )
 
@@ -633,12 +598,6 @@ def _build_demo_snapshot(client: Client, client_index: int, collected_at: dateti
     cpu_cores = max(2, cpu_threads // 2)
     ram_total_mb = float(8192 + client_index * 2048)
 
-    base_temp = 46 + (client_index * 1.4) + 7 * math.sin((epoch_minutes / 17.0) + client_index)
-    temp_spike = 20 if client_index % 3 == 0 and epoch_minutes % 180 < 8 else 0
-    cpu_temperature = round(max(28.0, min(98.0, base_temp + temp_spike)), 2)
-
-    fan_speed = int(max(700, min(4200, 900 + cpu_temperature * 16 + (client_index * 110))))
-
     disk_total_gb = float(256 + client_index * 128)
     disk_free_percent = 38 + 15 * math.sin((epoch_minutes / 23.0) + client_index)
     if client_index % 4 == 0 and epoch_minutes % 200 < 10:
@@ -670,11 +629,6 @@ def _build_demo_snapshot(client: Client, client_index: int, collected_at: dateti
         }
     ]
 
-    raw_payload = {
-        "cpu_temperature_source": "demo-generator",
-        "fan_speed_source": "demo-generator",
-    }
-
     return HardwareSnapshot(
         client_id=client.id,
         collected_at=collected_at,
@@ -698,9 +652,7 @@ def _build_demo_snapshot(client: Client, client_index: int, collected_at: dateti
         disks=disks,
         network_adapters=network,
         uptime_seconds=uptime_seconds,
-        cpu_temperature_c=cpu_temperature,
-        fan_speed_rpm=fan_speed,
-        raw_payload=raw_payload,
+        raw_payload={},
     )
 
 
@@ -1016,8 +968,6 @@ def ingest_snapshot(client_uid: str, payload: HardwareSnapshotIn, db: Session = 
         disks=[disk.model_dump() for disk in payload.disks],
         network_adapters=[adapter.model_dump() for adapter in payload.network_adapters],
         uptime_seconds=payload.uptime_seconds,
-        cpu_temperature_c=payload.cpu_temperature_c,
-        fan_speed_rpm=payload.fan_speed_rpm,
         raw_payload=payload.model_dump(mode="json"),
     )
     db.add(snapshot)
@@ -1341,10 +1291,6 @@ def export_client_data(
             "cpu_threads",
             "cpu_max_mhz",
             "ram_total_mb",
-            "cpu_temperature_c",
-            "cpu_temperature_source",
-            "fan_speed_rpm",
-            "fan_speed_source",
             "uptime_seconds",
             "motherboard_vendor",
             "bios_vendor",
@@ -1375,11 +1321,6 @@ def export_client_data(
         return str(value)
 
     latest_snapshot = snapshots[0] if snapshots else None
-    latest_raw_payload = (
-        latest_snapshot.raw_payload
-        if latest_snapshot is not None and isinstance(latest_snapshot.raw_payload, dict)
-        else {}
-    )
     pdf = FPDF()
     pdf.set_auto_page_break(auto=True, margin=10)
     pdf.add_page()
@@ -1429,14 +1370,6 @@ def export_client_data(
             (
                 f"RAM gesamt (MB): {pdf_value(latest_snapshot.ram_total_mb)} | "
                 f"Uptime (s): {pdf_value(latest_snapshot.uptime_seconds)}"
-            ),
-            (
-                f"CPU Temp (C): {pdf_value(latest_snapshot.cpu_temperature_c)} "
-                f"({pdf_value(latest_raw_payload.get('cpu_temperature_source'))})"
-            ),
-            (
-                f"Luefter (RPM): {pdf_value(latest_snapshot.fan_speed_rpm)} "
-                f"({pdf_value(latest_raw_payload.get('fan_speed_source'))})"
             ),
             (
                 f"Mainboard: {pdf_value(latest_snapshot.motherboard_vendor)} | "
@@ -1494,8 +1427,7 @@ def export_client_data(
             6,
             (
                 f"{row['collected_at']} | CPU Threads: {row['cpu_threads']} | RAM: {row['ram_total_mb']} MB | "
-                f"Disk frei min: {row['min_disk_free_percent']}% | Temp: {row['cpu_temperature_c']} ({row.get('cpu_temperature_source')}) | "
-                f"Fan: {row.get('fan_speed_rpm')} ({row.get('fan_speed_source')})"
+                f"Disk frei min: {row['min_disk_free_percent']}%"
             ),
         )
     pdf_bytes = pdf.output(dest="S")

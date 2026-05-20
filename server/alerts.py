@@ -24,8 +24,6 @@ def _min_disk_free_percent(snapshot: HardwareSnapshot) -> float | None:
 def metric_value_for_rule(snapshot: HardwareSnapshot, metric: str) -> float | None:
     if metric == "disk_free_percent_min":
         return _min_disk_free_percent(snapshot)
-    if metric == "cpu_temperature_c":
-        return float(snapshot.cpu_temperature_c) if snapshot.cpu_temperature_c is not None else None
     if metric == "uptime_seconds":
         return float(snapshot.uptime_seconds) if snapshot.uptime_seconds is not None else None
     return None

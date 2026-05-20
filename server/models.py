@@ -57,8 +57,6 @@ class HardwareSnapshot(Base):
     disks: Mapped[list | None] = mapped_column(JSON, nullable=True)
     network_adapters: Mapped[list | None] = mapped_column(JSON, nullable=True)
     uptime_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    cpu_temperature_c: Mapped[float | None] = mapped_column(Float, nullable=True)
-    fan_speed_rpm: Mapped[int | None] = mapped_column(Integer, nullable=True)
     raw_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     client: Mapped["Client"] = relationship(back_populates="snapshots")
