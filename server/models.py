@@ -1,6 +1,6 @@
-from datetime import datetime, timezone
+from datetime import date, datetime, timezone
 
-from sqlalchemy import Boolean, DateTime, Float, ForeignKey, Integer, JSON, String, Text
+from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
 from sqlalchemy.orm import Mapped, mapped_column, relationship
 
 from server.database import Base
@@ -19,6 +19,16 @@ class Client(Base):
     os_version: Mapped[str | None] = mapped_column(String(255), nullable=True)
     first_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
     last_seen: Mapped[datetime] = mapped_column(DateTime(timezone=True), default=utc_now)
+    location: Mapped[str | None] = mapped_column(String(255), nullable=True)
+    asset_tag: Mapped[str | None] = mapped_column(String(128), nullable=True, index=True)
+    serial_number: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    department: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    responsible_person: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    supplier: Mapped[str | None] = mapped_column(String(128), nullable=True)
+    purchase_date: Mapped[date | None] = mapped_column(Date, nullable=True)
+    purchase_price_eur: Mapped[float | None] = mapped_column(Float, nullable=True)
+    warranty_until: Mapped[date | None] = mapped_column(Date, nullable=True)
+    notes: Mapped[str | None] = mapped_column(Text, nullable=True)
 
     snapshots: Mapped[list["HardwareSnapshot"]] = relationship(
         back_populates="client", cascade="all, delete-orphan"
@@ -47,8 +57,6 @@ class HardwareSnapshot(Base):
     disks: Mapped[list | None] = mapped_column(JSON, nullable=True)
     network_adapters: Mapped[list | None] = mapped_column(JSON, nullable=True)
     uptime_seconds: Mapped[int | None] = mapped_column(Integer, nullable=True)
-    cpu_temperature_c: Mapped[float | None] = mapped_column(Float, nullable=True)
-    fan_speed_rpm: Mapped[int | None] = mapped_column(Integer, nullable=True)
     raw_payload: Mapped[dict | None] = mapped_column(JSON, nullable=True)
 
     client: Mapped["Client"] = relationship(back_populates="snapshots")

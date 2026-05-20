@@ -14,6 +14,8 @@ let latestAlertTimestamp = null;
 let currentClientSnapshots = [];
 let currentClientLatestSnapshot = null;
 let currentClientAnomalies = [];
+let currentClientsByUid = new Map();
+let currentClientMetadata = null;
 const currentPage = document.body?.dataset?.page || "dashboard";
 
 const REPOSITORY_URL = "https://github.com/DorDim/projektwoche.git";
@@ -30,7 +32,6 @@ const PERMISSION_FIELDS = [
 const PASSWORD_POLICY_SPECIAL_CHAR_REGEX = /[^A-Za-z0-9]/;
 const RULE_METRIC_LABELS = {
   disk_free_percent_min: "Min. freier Speicher (%)",
-  cpu_temperature_c: "CPU-Temperatur (°C)",
   uptime_seconds: "Uptime (Sekunden)",
 };
 
@@ -117,6 +118,7 @@ function updateAuthUi() {
   getEl("eventsSection")?.classList.toggle("hidden", !hasPermission("view_events"));
   getEl("navCompareLink")?.classList.toggle("hidden", !hasPermission("view_dashboard"));
   getEl("navUsersLink")?.classList.toggle("hidden", !hasPermission("manage_users"));
+  setInventoryControlsEnabled(hasPermission("add_clients"));
 }
 
 function showLoginScreen() {
@@ -192,6 +194,72 @@ function formatDuration(seconds) {
   return `${days}d ${hours}h ${minutes}m`;
 }
 
+function normalizeDateInputValue(value) {
+  if (!value) return "";
+  const textValue = String(value);
+  return textValue.slice(0, 10);
+}
+
+function setFormControlValue(id, value) {
+  const element = getEl(id);
+  if (!element) return;
+  element.value = value === null || value === undefined ? "" : String(value);
+}
+
+function parseOptionalNumber(value) {
+  const normalized = String(value || "").trim();
+  if (!normalized) return null;
+  const parsed = Number(normalized);
+  return Number.isFinite(parsed) ? parsed : null;
+}
+
+function formatInventoryDate(value) {
+  const normalized = normalizeDateInputValue(value);
+  if (!normalized) return "-";
+  return normalized;
+}
+
+function collectInventoryPayload() {
+  return {
+    location: getEl("inventoryLocation")?.value || null,
+    asset_tag: getEl("inventoryAssetTag")?.value || null,
+    serial_number: getEl("inventorySerialNumber")?.value || null,
+    department: getEl("inventoryDepartment")?.value || null,
+    responsible_person: getEl("inventoryResponsiblePerson")?.value || null,
+    supplier: getEl("inventorySupplier")?.value || null,
+    purchase_date: getEl("inventoryPurchaseDate")?.value || null,
+    purchase_price_eur: parseOptionalNumber(getEl("inventoryPurchasePrice")?.value),
+    warranty_until: getEl("inventoryWarrantyUntil")?.value || null,
+    notes: getEl("inventoryNotes")?.value || null,
+  };
+}
+
+function setInventoryControlsEnabled(isEnabled) {
+  [
+    "inventoryLocation",
+    "inventoryAssetTag",
+    "inventorySerialNumber",
+    "inventoryDepartment",
+    "inventoryResponsiblePerson",
+    "inventorySupplier",
+    "inventoryPurchaseDate",
+    "inventoryPurchasePrice",
+    "inventoryWarrantyUntil",
+    "inventoryNotes",
+  ].forEach((id) => {
+    const element = getEl(id);
+    if (element) {
+      element.disabled = !isEnabled;
+    }
+  });
+  getEl("openInventoryModalBtn")?.classList.toggle("hidden", !isEnabled);
+  getEl("inventoryReadOnlyHint")?.classList.toggle("hidden", isEnabled);
+  getEl("saveInventoryBtn")?.classList.toggle("hidden", !isEnabled);
+  if (!isEnabled) {
+    closeInventoryModal();
+  }
+}
+
 function validatePasswordPolicy(password) {
   if (password.length < 8) {
     return "Passwort muss mindestens 8 Zeichen lang sein.";
@@ -249,20 +317,6 @@ function filterAnomaliesByTimeRange(anomalies) {
   if (hours === null) return [...anomalies];
   const threshold = Date.now() - hours * 3600 * 1000;
   return anomalies.filter((entry) => new Date(entry.collected_at).getTime() >= threshold);
-}
-
-function sourceBadge(source) {
-  if (!source) {
-    return '<span class="inline-flex items-center rounded-full bg-slate-100 px-2 py-0.5 text-xs font-medium text-slate-600">nicht verfügbar</span>';
-  }
-  const normalized = String(source).toLowerCase();
-  const qualityClass =
-    normalized.includes("psutil") || normalized.includes("lm-sensors")
-      ? "bg-emerald-100 text-emerald-700"
-      : normalized.includes("sysfs") || normalized.includes("wmi")
-        ? "bg-amber-100 text-amber-700"
-        : "bg-violet-100 text-violet-700";
-  return `<span class="inline-flex items-center rounded-full px-2 py-0.5 text-xs font-medium ${qualityClass}">${escapeHtml(source)}</span>`;
 }
 
 async function apiGet(path) {
@@ -426,6 +480,7 @@ function renderClients(clients) {
   const tbody = document.querySelector("#clientsTable tbody");
   if (!tbody) return;
   tbody.innerHTML = "";
+  currentClientsByUid = new Map((clients || []).map((client) => [client.client_uid, client]));
   const canDeleteClients = hasPermission("delete_clients") && currentPage === "dashboard";
   const hasDetailsView = Boolean(getEl("detailsTitle"));
   const enableCompareSelection = Boolean(document.querySelector("#compareTable tbody"));
@@ -442,6 +497,8 @@ function renderClients(clients) {
       <td class="px-3 py-2">${selectCell}</td>
       <td class="px-3 py-2">${escapeHtml(client.hostname)}</td>
       <td class="px-3 py-2 font-mono text-xs">${escapeHtml(client.client_uid)}</td>
+      <td class="px-3 py-2">${escapeHtml(client.location || "-")}</td>
+      <td class="px-3 py-2 font-mono text-xs">${escapeHtml(client.asset_tag || "-")}</td>
       <td class="px-3 py-2 ${statusClass}">
         <div class="flex items-center gap-2 font-semibold">
           <span class="h-2.5 w-2.5 rounded-full ${statusDotClass}"></span>
@@ -507,6 +564,7 @@ function renderClients(clients) {
 function resetDetailView(message) {
   const detailsTitle = getEl("detailsTitle");
   const summaryCards = getEl("hardwareSummaryCards");
+  const inventorySummaryCards = getEl("inventorySummaryCards");
   const analyticsCards = getEl("analyticsCards");
   const anomaliesBody = getEl("anomaliesBody");
   const diskDetailsBody = getEl("diskDetailsBody");
@@ -537,6 +595,13 @@ function resetDetailView(message) {
       </div>
     `;
   }
+  if (inventorySummaryCards) {
+    inventorySummaryCards.innerHTML = `
+      <div class="rounded-lg border border-slate-200 bg-slate-50 p-3 text-sm text-slate-500">
+        ${escapeHtml(message)}
+      </div>
+    `;
+  }
   if (anomaliesBody) {
     anomaliesBody.innerHTML =
       '<tr><td class="px-3 py-2 text-slate-500" colspan="5">Bitte Client auswählen</td></tr>';
@@ -544,6 +609,18 @@ function resetDetailView(message) {
   currentClientSnapshots = [];
   currentClientLatestSnapshot = null;
   currentClientAnomalies = [];
+  currentClientMetadata = null;
+  setFormControlValue("inventoryLocation", "");
+  setFormControlValue("inventoryAssetTag", "");
+  setFormControlValue("inventorySerialNumber", "");
+  setFormControlValue("inventoryDepartment", "");
+  setFormControlValue("inventoryResponsiblePerson", "");
+  setFormControlValue("inventorySupplier", "");
+  setFormControlValue("inventoryPurchaseDate", "");
+  setFormControlValue("inventoryPurchasePrice", "");
+  setFormControlValue("inventoryWarrantyUntil", "");
+  setFormControlValue("inventoryNotes", "");
+  closeInventoryModal();
   if (historyChart) historyChart.destroy();
   if (uptimeChart) uptimeChart.destroy();
   if (diskChart) diskChart.destroy();
@@ -560,7 +637,6 @@ function buildResourceHistoryChart(canvas, snapshots) {
       ? Math.min(...s.disks.map((d) => d.free_percent || Number.POSITIVE_INFINITY))
       : null
   );
-  const cpuTemp = ordered.map((s) => s.cpu_temperature_c);
   return new Chart(canvas, {
     type: "line",
     data: {
@@ -572,19 +648,12 @@ function buildResourceHistoryChart(canvas, snapshots) {
           borderColor: "#2563eb",
           yAxisID: "y",
         },
-        {
-          label: "CPU-Temperatur (°C)",
-          data: cpuTemp,
-          borderColor: "#dc2626",
-          yAxisID: "y1",
-        },
       ],
     },
     options: {
       responsive: true,
       scales: {
         y: { position: "left" },
-        y1: { position: "right" },
       },
     },
   });
@@ -682,10 +751,6 @@ function renderHardwareSummary(snapshot) {
     { label: "CPU Max-Takt (MHz)", value: escapeHtml(fmt(snapshot.cpu_max_mhz, 2)) },
     { label: "RAM gesamt (MB)", value: escapeHtml(fmt(snapshot.ram_total_mb, 0)) },
     { label: "Uptime", value: escapeHtml(formatDuration(snapshot.uptime_seconds)) },
-    { label: "CPU-Temperatur (°C)", value: escapeHtml(fmt(snapshot.cpu_temperature_c, 1)) },
-    { label: "Temp.-Quelle", value: sourceBadge(snapshot.cpu_temperature_source), isHtml: true },
-    { label: "Lüfter (RPM)", value: escapeHtml(fmt(snapshot.fan_speed_rpm, 0)) },
-    { label: "Lüfter-Quelle", value: sourceBadge(snapshot.fan_speed_source), isHtml: true },
     { label: "Mainboard", value: escapeHtml(snapshot.motherboard_vendor) },
     { label: "BIOS/UEFI", value: escapeHtml(snapshot.bios_vendor) },
     { label: "Erfasst am", value: escapeHtml(new Date(snapshot.collected_at).toLocaleString()) },
@@ -706,7 +771,7 @@ function renderDiskDetails(disks) {
   if (!body) return;
   if (!disks || disks.length === 0) {
     body.innerHTML =
-      '<tr><td class="px-3 py-2 text-slate-500" colspan="4">Keine Laufwerksdaten vorhanden</td></tr>';
+      '<tr><td class="px-3 py-2 text-slate-500" colspan="5">Keine Laufwerksdaten vorhanden</td></tr>';
     return;
   }
   body.innerHTML = disks
@@ -715,6 +780,7 @@ function renderDiskDetails(disks) {
       <tr>
         <td class="px-3 py-2">${escapeHtml(disk.mountpoint)}</td>
         <td class="px-3 py-2">${escapeHtml(disk.filesystem)}</td>
+        <td class="px-3 py-2">${fmt(disk.total_gb, 2)}</td>
         <td class="px-3 py-2">${fmt(disk.free_percent, 2)}</td>
         <td class="px-3 py-2">${fmt(disk.free_gb, 2)}</td>
       </tr>`
@@ -768,6 +834,43 @@ function renderHardwareDetails(snapshot) {
   renderGpuDetails(snapshot.gpu_info || []);
 }
 
+function renderInventoryDetails(client) {
+  const summaryContainer = getEl("inventorySummaryCards");
+  if (summaryContainer) {
+    const fields = [
+      ["Standort", client?.location],
+      ["Inventar-Nummer", client?.asset_tag],
+      ["Seriennummer", client?.serial_number],
+      ["Abteilung", client?.department],
+      ["Verantwortlich", client?.responsible_person],
+      ["Lieferant", client?.supplier],
+      ["Anschaffungsdatum", formatInventoryDate(client?.purchase_date)],
+      ["Anschaffungspreis (EUR)", client?.purchase_price_eur !== null && client?.purchase_price_eur !== undefined ? fmt(client.purchase_price_eur, 2) : "-"],
+      ["Garantie bis", formatInventoryDate(client?.warranty_until)],
+      ["Notizen", client?.notes || "-"],
+    ];
+    summaryContainer.innerHTML = fields
+      .map(
+        ([label, value]) => `
+        <div class="rounded-lg border border-slate-200 bg-slate-50 p-3">
+          <div class="text-xs uppercase tracking-wide text-slate-500">${escapeHtml(label)}</div>
+          <div class="mt-1 text-sm font-semibold text-slate-800">${escapeHtml(value)}</div>
+        </div>`
+      )
+      .join("");
+  }
+  setFormControlValue("inventoryLocation", client?.location || "");
+  setFormControlValue("inventoryAssetTag", client?.asset_tag || "");
+  setFormControlValue("inventorySerialNumber", client?.serial_number || "");
+  setFormControlValue("inventoryDepartment", client?.department || "");
+  setFormControlValue("inventoryResponsiblePerson", client?.responsible_person || "");
+  setFormControlValue("inventorySupplier", client?.supplier || "");
+  setFormControlValue("inventoryPurchaseDate", normalizeDateInputValue(client?.purchase_date));
+  setFormControlValue("inventoryPurchasePrice", client?.purchase_price_eur ?? "");
+  setFormControlValue("inventoryWarrantyUntil", normalizeDateInputValue(client?.warranty_until));
+  setFormControlValue("inventoryNotes", client?.notes || "");
+}
+
 function minDiskFreePercent(snapshot) {
   if (!snapshot || !snapshot.disks || snapshot.disks.length === 0) return null;
   const values = snapshot.disks
@@ -794,16 +897,12 @@ function renderAveragesFromSnapshots(snapshots) {
     `;
     return;
   }
-  const avgCpu = averageNumber(snapshots.map((snapshot) => Number(snapshot.cpu_temperature_c)));
   const avgDiskFree = averageNumber(snapshots.map((snapshot) => minDiskFreePercent(snapshot)));
   const avgUptimeSeconds = averageNumber(snapshots.map((snapshot) => Number(snapshot.uptime_seconds)));
-  const avgFanSpeedRpm = averageNumber(snapshots.map((snapshot) => Number(snapshot.fan_speed_rpm)));
   const cards = [
     ["Samples im Zeitraum", fmt(snapshots.length, 0)],
-    ["Ø CPU-Temperatur (°C)", fmt(avgCpu, 2)],
     ["Ø Min. freier Speicher (%)", fmt(avgDiskFree, 2)],
     ["Ø Uptime (s)", fmt(avgUptimeSeconds, 0)],
-    ["Ø Lüfterdrehzahl (RPM)", fmt(avgFanSpeedRpm, 0)],
   ];
   container.innerHTML = cards
     .map(
@@ -866,7 +965,7 @@ function openChartModal(chartType) {
     modalChart = null;
   }
   if (chartType === "history") {
-    title.textContent = "Historie: Speicher & Temperatur";
+    title.textContent = "Historie: Freier Speicher";
     modalChart = buildResourceHistoryChart(canvas, filtered);
   } else if (chartType === "uptime") {
     title.textContent = "Historie: Uptime";
@@ -990,8 +1089,10 @@ async function loadClientDetails(clientUid) {
   currentClientSnapshots = snapshots;
   currentClientLatestSnapshot = latest;
   currentClientAnomalies = anomalies || [];
+  currentClientMetadata = currentClientsByUid.get(clientUid) || null;
   getEl("detailsTitle").textContent = `Client-Details: ${latest.hostname} (${clientUid})`;
   renderHardwareDetails(latest);
+  renderInventoryDetails(currentClientMetadata);
   rerenderClientVisuals();
 }
 
@@ -1237,6 +1338,22 @@ async function exportSelectedClient(format) {
   showToast(`Export (${format.toUpperCase()}) gestartet.`, "success");
 }
 
+async function saveSelectedClientInventory() {
+  if (!selectedClientUid) {
+    showError("Bitte zuerst einen Client auswählen.");
+    return;
+  }
+  if (!hasPermission("add_clients")) {
+    showError("Keine Berechtigung zum Bearbeiten der Inventardaten.");
+    return;
+  }
+  const payload = collectInventoryPayload();
+  await apiPatch(`/api/clients/${encodeURIComponent(selectedClientUid)}/inventory`, payload);
+  closeInventoryModal();
+  showToast("Inventardaten gespeichert.", "success");
+  await refreshAll();
+}
+
 function permissionSummaryText(user) {
   if (user.role === "admin") {
     return "Alle";
@@ -1478,6 +1595,29 @@ function closeOnboardingModal() {
   modal.classList.remove("flex");
 }
 
+function openInventoryModal() {
+  const modal = getEl("inventoryModal");
+  if (!modal) return;
+  if (!hasPermission("add_clients")) {
+    showError("Keine Berechtigung zum Bearbeiten der Inventardaten.");
+    return;
+  }
+  if (!selectedClientUid) {
+    showError("Bitte zuerst einen Client auswählen.");
+    return;
+  }
+  renderInventoryDetails(currentClientMetadata);
+  modal.classList.remove("hidden");
+  modal.classList.add("flex");
+}
+
+function closeInventoryModal() {
+  const modal = getEl("inventoryModal");
+  if (!modal) return;
+  modal.classList.add("hidden");
+  modal.classList.remove("flex");
+}
+
 async function generateOnboardingToken() {
   const tokenPayload = await apiPost("/api/onboarding-tokens", {});
   onboardingTokenValue = tokenPayload.token;
@@ -1571,7 +1711,7 @@ async function refreshAll() {
   }
 
   if (hasDetails) {
-    if (selectedClientUid) {
+    if (selectedClientUid && clients.some((client) => client.client_uid === selectedClientUid)) {
       await loadClientDetails(selectedClientUid);
     } else if (clients.length > 0) {
       selectedClientUid = clients[0].client_uid;
@@ -1612,6 +1752,8 @@ async function forceLogout(message = "") {
   authContext = null;
   cachedUsers = [];
   latestAlertTimestamp = null;
+  currentClientsByUid = new Map();
+  currentClientMetadata = null;
   persistApiKey();
   showLoginScreen();
   updateAuthUi();
@@ -1681,6 +1823,16 @@ bindEvent("openOnboardingBtn", "click", async () => {
 });
 
 bindEvent("createAlertRuleForm", "submit", createAlertRuleFromForm);
+bindEvent("openInventoryModalBtn", "click", () => {
+  openInventoryModal();
+});
+bindEvent("saveInventoryBtn", "click", async () => {
+  try {
+    await saveSelectedClientInventory();
+  } catch (error) {
+    showError(error.message);
+  }
+});
 bindEvent("timeRangeSelect", "change", () => {
   rerenderClientVisuals();
 });
@@ -1736,6 +1888,8 @@ bindEvent("editUserRole", "change", (event) => {
 bindEvent("closeEditUserModalBtn", "click", closeEditUserModal);
 bindEvent("cancelEditUserBtn", "click", closeEditUserModal);
 bindEvent("closeOnboardingBtn", "click", closeOnboardingModal);
+bindEvent("closeInventoryModalBtn", "click", closeInventoryModal);
+bindEvent("cancelInventoryModalBtn", "click", closeInventoryModal);
 bindEvent("regenerateTokenBtn", "click", async () => {
   try {
     await generateOnboardingToken();
@@ -1761,6 +1915,11 @@ bindEvent("onboardingModal", "click", (event) => {
 bindEvent("editUserModal", "click", (event) => {
   if (event.target.id === "editUserModal") {
     closeEditUserModal();
+  }
+});
+bindEvent("inventoryModal", "click", (event) => {
+  if (event.target.id === "inventoryModal") {
+    closeInventoryModal();
   }
 });
 

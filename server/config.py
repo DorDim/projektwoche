@@ -10,7 +10,7 @@ def _env_bool(name: str, default: str = "false") -> bool:
 
 @dataclass
 class Settings:
-    database_url: str = os.getenv("DATABASE_URL", "sqlite:///./hardware_monitor.db")
+    database_url: str = os.getenv("DATABASE_URL", "").strip()
     api_key: str = os.getenv("SERVER_API_KEY", "change-me")
     start_admin_password: str | None = os.getenv("START_ADMIN_PASSWORD")
     start_admin_username: str = os.getenv("START_ADMIN_USERNAME", "admin")
@@ -28,12 +28,26 @@ class Settings:
     @property
     def normalized_database_url(self) -> str:
         url = self.database_url.strip()
+        if not url:
+            pg_user = os.getenv("POSTGRES_USER", "monitor_user").strip() or "monitor_user"
+            pg_password = os.getenv("POSTGRES_PASSWORD", "monitor_password")
+            pg_db = os.getenv("POSTGRES_DB", "hardware_monitor").strip() or "hardware_monitor"
+            pg_host = os.getenv("POSTGRES_HOST", "postgres").strip() or "postgres"
+            pg_port = os.getenv("POSTGRES_PORT", "5432").strip() or "5432"
+            url = f"postgresql+psycopg://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_db}"
 
         # Support common "postgres://" format by normalizing to SQLAlchemy dialect URL.
         if url.startswith("postgres://"):
             url = "postgresql+psycopg://" + url[len("postgres://") :]
         elif url.startswith("postgresql://"):
             url = "postgresql+psycopg://" + url[len("postgresql://") :]
+
+        if url.startswith("sqlite"):
+            raise ValueError("SQLite wird nicht mehr unterstützt. Bitte PostgreSQL über DATABASE_URL konfigurieren.")
+        if not url.startswith("postgresql+psycopg://"):
+            raise ValueError(
+                "Ungültige DATABASE_URL. Erwartet wird ein PostgreSQL-URL im Format postgresql+psycopg://..."
+            )
 
         if self.db_sslmode and url.startswith("postgresql+psycopg://"):
             parts = urlsplit(url)
