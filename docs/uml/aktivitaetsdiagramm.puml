@@ -1,64 +1,70 @@
 @startuml
 start
-:Traefik empfängt HTTPS-Anfrage;
-:Anfrage an FastAPI weiterleiten;
+:Traefik empfaengt HTTPS-Anfrage;
+:Request wird an FastAPI weitergeleitet;
 
-if (Login vorhanden?) then (nein)
-  :Login-Screen anzeigen;
-  :Benutzername + Passwort prüfen;
-  if (gültig?) then (ja)
+if (Session vorhanden?) then (nein)
+  :Login-Maske anzeigen;
+  :Benutzername und Passwort pruefen;
+  if (Login gueltig?) then (ja)
     :Session-Token erzeugen;
   else (nein)
-    :Fehler anzeigen;
+    :Fehlermeldung ausgeben;
     stop
   endif
 endif
 
-:Rolle + Berechtigungen laden;
+:Rechte des Benutzers laden;
 
-if (Seite = Nutzerverwaltung?) then (ja)
-  if (manage_users erlaubt?) then (ja)
-    :Benutzerliste laden;
-    :Benutzer anlegen/bearbeiten/löschen;
+if (Seite = Dashboard?) then (ja)
+  if (view_dashboard erlaubt?) then (ja)
+    :Client-Liste laden;
+    :Detaildaten, Analytics, Alerts, Events abrufen;
+    if (Inventar speichern?) then (ja)
+      :add_clients pruefen;
+      :Inventardaten aktualisieren;
+      :Event protokollieren;
+    endif
   else (nein)
-    :403 / Hinweis \"keine Berechtigung\";
+    :403 keine Berechtigung;
   endif
 elseif (Seite = Vergleich?) then (ja)
   if (view_dashboard erlaubt?) then (ja)
-    :Clients laden;
-    :Vergleichsdaten + Diagramme anzeigen;
+    :Vergleichsdaten fuer ausgewaehlte Clients laden;
   else (nein)
-    :403 / Hinweis \"keine Berechtigung\";
+    :403 keine Berechtigung;
   endif
-else (Dashboard)
-  if (view_dashboard erlaubt?) then (ja)
-    :Clients + Alerts + Historie laden;
+else (Seite = Nutzerverwaltung)
+  if (manage_users erlaubt?) then (ja)
+    :Benutzer anlegen/bearbeiten/loeschen;
+    :Schutzregeln anwenden (kein Self-Delete,\nkein Admin-Delete fuer Nicht-Admins);
   else (nein)
-    :403 / Hinweis \"keine Berechtigung\";
+    :403 keine Berechtigung;
   endif
 endif
 
 fork
   repeat
     :Client-Agent startet;
-    :Client-ID laden/erzeugen;
+    :Client-ID laden oder erzeugen;
     :Client registrieren;
     :Hardwaredaten sammeln;
     :Snapshot senden;
     if (Server erreichbar?) then (ja)
       :Snapshot speichern;
-      :Trends/Anomalien berechnen;
-      :Grenzwerte prüfen;
-      if (Grenzwert verletzt?) then (ja)
-        :Alert erzeugen + Event loggen;
+      :Anomalien berechnen;
+      :Alert-Regeln pruefen;
+      if (Regel verletzt?) then (ja)
+        :Alert-Event erzeugen;
       endif
+      :Systemevent protokollieren;
     else (nein)
-      :Fehler loggen + Backoff;
+      :Fehler und Backoff protokollieren;
     endif
   repeat while (Agent aktiv?)
 fork again
-  :Admin erzeugt optional Onboarding-Token;
-  :Neuer Client wird per Install-Skript angebunden;
+  :Admin erzeugt Onboarding-Token;
+  :Neuer Client wird ueber Install-Skript angebunden;
 end fork
 
 stop
