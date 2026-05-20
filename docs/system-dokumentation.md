@@ -72,7 +72,7 @@ Regeln:
 
 ## 4.1 Relevante Services
 
-- `traefik` (v3.7.1)
+- `traefik` (latest)
 - `server` (FastAPI)
 - `postgres`
 

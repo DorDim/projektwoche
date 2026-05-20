@@ -1,6 +1,6 @@
 services:
   traefik:
-    image: traefik:v3.7.1
+    image: traefik:latest
     container_name: hardware-monitor-traefik
     restart: unless-stopped
     environment:
@@ -29,7 +29,7 @@ services:
       - monitor-net
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:latest
     container_name: hardware-monitor-postgres
     restart: unless-stopped
     environment:
