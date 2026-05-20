@@ -29,15 +29,16 @@ services:
       - monitor-net
 
   postgres:
-    image: postgres:16-alpine
+    image: postgres:18-alpine
     container_name: hardware-monitor-postgres
     restart: unless-stopped
     environment:
       POSTGRES_DB: ${POSTGRES_DB:-hardware_monitor}
       POSTGRES_USER: ${POSTGRES_USER:-monitor_user}
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monitor_password}
+      PGDATA: /var/lib/postgresql/18/docker
     volumes:
-      - postgres_data:/var/lib/postgresql/data
+      - postgres18_data:/var/lib/postgresql
     healthcheck:
       test: ["CMD-SHELL", "pg_isready -U ${POSTGRES_USER:-monitor_user} -d ${POSTGRES_DB:-hardware_monitor}"]
       interval: 10s
@@ -94,7 +95,7 @@ services:
       - monitor-net
 
 volumes:
-  postgres_data:
+  postgres18_data:
   letsencrypt_data:
 
 networks:
