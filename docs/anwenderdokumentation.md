@@ -1,215 +1,153 @@
-# Anwenderdokumentation – Hardwareüberwachung
+# Anwenderdokumentation - Hardwareueberwachung
 
-Diese Anleitung richtet sich an Admins und Anwender.  
-Sie ist so aufgebaut, dass typische Aufgaben direkt als Schritt-für-Schritt-Ablauf umgesetzt werden können.
-
----
-
-## Inhaltsverzeichnis
-
-1. [Schnellstart in 5 Minuten](#schnellstart-in-5-minuten)
-2. [Grundlagen: Login, Navigation, Rollen](#grundlagen-login-navigation-rollen)
-3. [Szenario A: Admin richtet Benutzer ein](#szenario-a-admin-richtet-benutzer-ein)
-4. [Szenario B: Neuen Client anbinden](#szenario-b-neuen-client-anbinden)
-5. [Szenario C: Tägliche Überwachung im Dashboard](#szenario-c-tägliche-überwachung-im-dashboard)
-6. [Szenario D: Clients vergleichen](#szenario-d-clients-vergleichen)
-7. [Szenario E: Daten exportieren](#szenario-e-daten-exportieren)
-8. [Sichtbarkeit von Demo-Daten](#sichtbarkeit-von-demo-daten)
-9. [Checkliste für den Regelbetrieb](#checkliste-für-den-regelbetrieb)
-10. [Fehlerbehebung (Troubleshooting)](#fehlerbehebung-troubleshooting)
+Diese Anleitung richtet sich an Admins und Anwender im Tagesbetrieb.
+Die Inhalte sind praxisnah als Szenarien aufgebaut.
 
 ---
 
-## Schnellstart in 5 Minuten
+## 1. Schnellstart
 
-1. Weboberfläche öffnen (`https://deine-domain`).
+1. URL der Anwendung oeffnen (z. B. `https://monitor.example.com`).
 2. Mit Benutzername und Passwort anmelden.
-3. Im Dashboard einen Client auswählen.
-4. Zeitspanne setzen (z. B. 24h).
-5. Durchschnittswerte, Alerts und Laufwerkszustand prüfen.
+3. Im Dashboard einen Client auswaehlen.
+4. Werte, Historie, Alerts und Inventardaten pruefen.
 
-Wenn keine Daten sichtbar sind: zuerst **Aktualisieren** klicken.
+Wenn keine Daten sichtbar sind: **Aktualisieren** ausfuehren.
 
 ---
 
-## Grundlagen: Login, Navigation, Rollen
-
-### Login
-- Ohne Login ist kein Zugriff auf Unterseiten möglich.
-- Nach dem Login werden nur Menüpunkte angezeigt, für die Berechtigungen vorhanden sind.
+## 2. Navigation und Rechte
 
 ### Navigation
-- **Dashboard**: Überblick, Details, Alerts, Export
-- **Vergleich**: Mehrere Clients nebeneinander auswerten
-- **Anwenderdoku**: Kurzanleitung und ausführliche Nutzungshinweise
-- **Nutzer**: Benutzerverwaltung (nur mit Berechtigung)
+- **Dashboard**: Client-Liste, Details, Inventarisierung, Analytics, Alerts, Export
+- **Vergleich**: Gegenueberstellung mehrerer Clients
+- **Nutzer**: Benutzerverwaltung (nur mit entsprechender Berechtigung)
 
-### Rollen und Berechtigungen
+### Rollen-/Rechtekurzinfo
 
-| Berechtigung | Bedeutung |
+| Recht | Wirkung |
 |---|---|
-| Dashboard ansehen | Zugriff auf Dashboard und Vergleich |
-| Clients hinzufügen | Onboarding neuer Geräte |
-| Clients löschen | Entfernen vorhandener Geräte |
-| Nutzer verwalten | Benutzer anlegen, bearbeiten, deaktivieren |
-| Alert-Regeln verwalten | Grenzwerte konfigurieren |
-| Events ansehen | Ereignisprotokoll einsehen |
+| `view_dashboard` | Dashboard und Vergleich sehen |
+| `add_clients` | Onboarding-Token erzeugen, Inventardaten bearbeiten |
+| `delete_clients` | Clients loeschen |
+| `manage_users` | Benutzer anlegen/aendern/loeschen |
+| `manage_alert_rules` | Alert-Regeln pflegen |
+| `view_events` | Event-Logs einsehen |
 
 ---
 
-## Szenario A: Admin richtet Benutzer ein
+## 3. Szenario: Benutzerverwaltung (Admin)
 
 ### Ziel
-Neue Teammitglieder erhalten nur die Rechte, die sie tatsächlich benötigen.
+Benutzer mit passenden Rechten einrichten.
 
-### Vorgehen
+### Schritte
 1. Als Admin anmelden.
-2. Menü **Nutzer** öffnen.
-3. Unter **Neuen Benutzer erstellen**:
-   - Benutzername eingeben
-   - Passwort vergeben (mind. 8 Zeichen + Sonderzeichen)
-   - Rolle wählen (User/Admin)
-   - Berechtigungen setzen
-4. Benutzer erstellen.
-5. Testweise mit dem neuen Benutzer anmelden.
+2. Seite **Nutzer** oeffnen.
+3. Unter "Neuen Benutzer erstellen" ausfuellen:
+   - Benutzername
+   - Passwort (mind. 8 Zeichen + Sonderzeichen)
+   - Rolle
+   - Einzelrechte
+4. Speichern und mit Test-Login pruefen.
 
-### Empfehlung für den Start
-- Für reine Beobachter: nur **Dashboard ansehen**
-- Für Technik-Team: zusätzlich **Clients hinzufügen**
-- Für Teamleitung/Admin: inkl. **Nutzer verwalten** und ggf. **Alert-Regeln verwalten**
+Hinweis:
+- Nicht-Admins koennen keine Admin-Benutzer loeschen/bearbeiten.
+- Eigenes Benutzerkonto kann nicht geloescht werden.
 
 ---
 
-## Szenario B: Neuen Client anbinden
-
-### Ziel
-Ein neues Gerät liefert automatisch Hardwaredaten an den Server.
+## 4. Szenario: Neuen Client anbinden
 
 ### Voraussetzung
-Recht **Clients hinzufügen**.
+Recht `add_clients`.
 
 ### Schritte
-1. Dashboard öffnen.
-2. Auf **Neuen Client hinzufügen** klicken.
-3. Generierten Token kopieren.
-4. Auf dem Zielgerät den angezeigten Ein-Befehl ausführen:
-   - Windows (PowerShell)
-   - Linux (Bash)
-5. Zurück im Dashboard auf **Aktualisieren** klicken.
-6. Prüfen, ob der Client in der Liste sichtbar ist.
-
-### Erfolgskriterium
-- Client erscheint als Eintrag in der Tabelle.
-- Nach kurzer Zeit sind Detaildaten und Verlauf verfügbar.
+1. Dashboard -> **Neuen Client hinzufuegen**.
+2. Token erzeugen und kopieren.
+3. Installationsbefehl auf Zielgeraet ausfuehren (Windows oder Linux).
+4. Zurueck im Dashboard aktualisieren.
+5. Client in der Liste pruefen.
 
 ---
 
-## Szenario C: Tägliche Überwachung im Dashboard
+## 5. Szenario: Inventardaten pflegen
 
 ### Ziel
-Systemzustand schnell erkennen und bei Problemen reagieren.
-
-### Empfohlener Ablauf
-1. Client auswählen.
-2. Zeitspanne oben einstellen (1h, 6h, 24h, 7 Tage, 30 Tage, Alles).
-3. Nacheinander prüfen:
-   - **Durchschnittswerte (ausgewählter Zeitraum)**
-   - **Historie-Diagramme**
-   - **Erkannte Auffälligkeiten**
-   - **Aktuelle Alerts**
-4. Laufwerksdetails ansehen:
-   - **Gesamt (GB)**
-   - **Frei (%)**
-   - **Frei (GB)**
-
-### Interpretation
-- Stark fallender freier Speicher: mögliche Speicherknappheit.
-- Uptime-Reset: Gerät wurde neu gestartet oder war kurz offline.
-
----
-
-## Szenario D: Clients vergleichen
-
-### Ziel
-Mehrere Systeme direkt gegeneinander bewerten.
+Technische Daten und organisatorische Inventarinformationen verknuepfen.
 
 ### Schritte
-1. Menü **Vergleich** öffnen.
-2. Relevante Clients per Checkbox auswählen.
-3. Vergleichskarten und Vergleichsdiagramm prüfen.
-4. Auffällige Geräte im Dashboard im Detail untersuchen.
-
-### Typische Fragen
-- Welcher Client hat den geringsten freien Speicher?
-- Gibt es Ausreißer bei RAM/Threads?
-- Haben bestimmte Systeme wiederholt schlechtere Werte?
-
----
-
-## Szenario E: Daten exportieren
-
-### Ziel
-Daten für Berichte, Audits oder externe Auswertung sichern.
-
-### Schritte
-1. Im Dashboard einen Client auswählen.
-2. Exportformat wählen:
-   - **JSON** (strukturierte Rohdaten)
-   - **CSV** (Tabellenanalyse, Excel)
-   - **PDF** (schnelle Weitergabe)
-3. Datei speichern und dokumentieren.
-
-### Hinweis
-Für technische Nachvollziehbarkeit ist JSON am vollständigsten.
+1. Im Dashboard einen Client waehlen.
+2. Im Bereich **Inventarisierung** auf "Inventardaten bearbeiten" klicken.
+3. Felder fuellen, z. B.:
+   - Standort
+   - Inventar-Nummer
+   - Seriennummer
+   - Abteilung / Verantwortliche Person
+   - Anschaffungsdatum / Anschaffungspreis
+   - Garantie bis / Notizen
+4. Speichern.
 
 ---
 
-## Sichtbarkeit von Demo-Daten
+## 6. Szenario: Tagesbetrieb im Dashboard
 
-- Demo-Clients und Demo-bezogene Daten sind nur für den Demo-Benutzer sichtbar.
-- Normale Benutzerkonten sehen diese Daten nicht.
+Empfohlener Ablauf je Client:
+1. Zeitraum setzen (1h, 6h, 24h, 7d, 30d, Alles).
+2. Durchschnittswerte im Zeitraum pruefen.
+3. Historie "Freier Speicher", Uptime-Verlauf und Laufwerksauslastung ansehen.
+4. Auffaelligkeiten und aktuelle Alerts kontrollieren.
+5. Falls noetig Export erstellen (JSON/CSV/PDF).
 
-Damit bleibt die Produktivsicht sauber getrennt von Demonstrationsdaten.
-
----
-
-## Checkliste für den Regelbetrieb
-
-- [ ] Täglicher Blick auf Alerts
-- [ ] Wöchentliche Prüfung der Top-Risikoclients (Speicher/Uptime)
-- [ ] Monatliche Berechtigungsprüfung der Benutzer
-- [ ] Regelmäßiger Export für Nachweise oder Reports
-- [ ] Prüfen, ob neue Geräte korrekt erfasst werden
+Praxisbeispiele:
+- stark sinkender freier Speicher -> Speicherengpass pruefen
+- abrupter Uptime-Abfall -> moeglicher Neustart/Instabilitaet
 
 ---
 
-## Fehlerbehebung (Troubleshooting)
+## 7. Szenario: Clients vergleichen
 
-### Problem: Login fehlgeschlagen
-**Prüfen:**
-- Benutzername korrekt?
-- Passwort korrekt?
-- Groß-/Kleinschreibung beachtet?
-- Benutzerkonto aktiv?
-
-### Problem: Kein Client sichtbar
-**Prüfen:**
-- Agent auf Zielsystem installiert und gestartet?
-- Im Dashboard auf **Aktualisieren** geklickt?
-- Berechtigung **Dashboard ansehen** vorhanden?
-
-### Problem: Nutzerverwaltung fehlt
-**Prüfen:**
-- Berechtigung **Nutzer verwalten** gesetzt?
-- Mit dem richtigen Benutzer angemeldet?
-
-### Problem: Keine Daten trotz sichtbarem Client
-**Prüfen:**
-- Netzwerkverbindung zwischen Client und Server
-- API-Token/Server-URL im Agent korrekt
-- Logs/Events für Hinweise auf Übertragungsfehler
+1. Seite **Vergleich** oeffnen.
+2. Relevante Clients per Checkbox markieren.
+3. Vergleichskarten und Vergleichstabelle auswerten.
+4. Auffaellige Systeme im Dashboard detailliert untersuchen.
 
 ---
 
-Wenn gewünscht, kann diese Doku zusätzlich als kurze 1-Seiten-Betriebsanleitung (PDF-Format) bereitgestellt werden.
+## 8. Exporte nutzen
+
+Pro ausgewaehltem Client verfuegbar:
+- **JSON**: vollstaendige strukturierte Daten
+- **CSV**: tabellarisch (z. B. fuer Excel)
+- **PDF**: kompakter Report inkl. Inventardaten und aktuellem Snapshot
+
+---
+
+## 9. Demo-Daten
+
+- Demo-Clients sind nur fuer den Demo-Benutzer sichtbar.
+- Produktive Benutzer sehen keine Demo-Daten.
+
+---
+
+## 10. Fehlerbehebung
+
+### Login funktioniert nicht
+- Benutzername/Passwort pruefen
+- Konto aktiv?
+- Rechte korrekt gesetzt?
+
+### Client erscheint nicht
+- Agent auf Zielsystem gestartet?
+- API-Token und Server-URL korrekt?
+- Dashboard aktualisiert?
+
+### Keine Daten trotz sichtbarem Client
+- Netzwerkverbindung pruefen
+- Event-Log auf Fehler pruefen
+- Server-Logs pruefen
+
+### Datenbankfehler im Compose-Betrieb
+- `POSTGRES_PASSWORD` in `.env` pruefen
+- bei alten Volumes ggf. altes Passwort oder `docker compose down -v` (Datenverlust)
 

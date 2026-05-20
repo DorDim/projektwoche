@@ -8,27 +8,29 @@ actor "Client-Agent" as Agent
 
 rectangle "Hardwareüberwachungssystem" {
   usecase "Anmelden" as UC_Login
-  usecase "Dashboard ansehen" as UC_Dashboard
+  usecase "Dashboard aufrufen" as UC_Dashboard
   usecase "Clients vergleichen" as UC_Compare
-  usecase "Client-Details & Historie anzeigen" as UC_Details
+  usecase "Client-Details anzeigen" as UC_Details
+  usecase "Inventardaten bearbeiten" as UC_Inventory
+  usecase "Export erstellen\n(JSON/CSV/PDF)" as UC_Export
   usecase "Onboarding-Token erzeugen" as UC_Onboard
-  usecase "Client löschen" as UC_DeleteClient
+  usecase "Client loeschen" as UC_DeleteClient
   usecase "Alert-Regeln verwalten" as UC_Alerts
   usecase "Events einsehen" as UC_Events
-  usecase "Benutzer verwalten\n(anlegen/bearbeiten/löschen)" as UC_Users
-  usecase "Export erzeugen\n(JSON/CSV/PDF)" as UC_Export
+  usecase "Benutzer verwalten\n(anlegen/bearbeiten/loeschen)" as UC_Users
 
   usecase "Client registrieren" as UC_Register
   usecase "Snapshot senden" as UC_Snapshot
   usecase "Daten speichern" as UC_Store
-  usecase "Anomalien/Trends berechnen" as UC_Analyze
-  usecase "Grenzwerte prüfen\nund Alarm auslösen" as UC_CheckAlert
+  usecase "Anomalien berechnen" as UC_Analyze
+  usecase "Regeln pruefen\nund Alerts ausloesen" as UC_CheckAlert
 }
 
 Admin --> UC_Login
 Admin --> UC_Dashboard
 Admin --> UC_Compare
 Admin --> UC_Details
+Admin --> UC_Inventory
 Admin --> UC_Onboard
 Admin --> UC_DeleteClient
 Admin --> UC_Alerts
@@ -40,6 +42,7 @@ User --> UC_Login
 User --> UC_Dashboard
 User --> UC_Compare
 User --> UC_Details
+User --> UC_Inventory
 User --> UC_Export
 
 Agent --> UC_Register
