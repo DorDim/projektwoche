@@ -72,9 +72,9 @@ Regeln:
 
 ## 4.1 Relevante Services
 
-- `traefik` (latest)
+- `traefik` (v3.7.1)
 - `server` (FastAPI)
-- `postgres`
+- `postgres` (18-alpine)
 
 ## 4.2 Relevante `.env` Variablen
 

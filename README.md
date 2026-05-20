@@ -131,3 +131,8 @@ Hinweis: Das Linux-Skript versucht fehlende venv-Pakete (z. B. `python3-venv`) a
   - DNS + Port 80/443 prüfen
 - Linux-Installer bricht bei venv ab:
   - Skript erneut mit Root/Sudo ausführen
+- PostgreSQL 18 meldet Fehler zu altem Datenpfad `/var/lib/postgresql/data`:
+  - Ursache: bestehendes Volume aus älteren Postgres-Versionen (vor 18)
+  - Lösung ohne Datenübernahme: alte DB-Volumes entfernen und Container neu starten  
+    `docker compose down -v && docker compose up -d --build`
+  - Lösung mit Datenübernahme: zuerst Backup (z. B. `pg_dump`) aus alter Instanz erstellen, danach in neue 18er-Instanz einspielen
