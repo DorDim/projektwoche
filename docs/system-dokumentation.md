@@ -163,4 +163,5 @@ Verwaltung:
 ## 8. UML
 
 - Use-Case: `docs/uml/anwendungsfalldiagramm.puml`
-- Aktivität: `docs/uml/aktivitaetsdiagramm.puml`
+- Aktivität (Server): `docs/uml/aktivitaetsdiagramm-server.puml`
+- Aktivität (Client): `docs/uml/aktivitaetsdiagramm-client.puml`

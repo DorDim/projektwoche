@@ -115,9 +115,11 @@ Hinweis: Das Linux-Skript versucht fehlende venv-Pakete (z. B. `python3-venv`) a
 
 ## Dokumentation und UML
 
+- Anwenderdokumentation: `docs/anwenderdokumentation.md`
 - Ausführliche Doku: `docs/system-dokumentation.md`
 - Use-Case-UML: `docs/uml/anwendungsfalldiagramm.puml`
-- Aktivitäts-UML: `docs/uml/aktivitaetsdiagramm.puml`
+- Aktivitäts-UML (Server): `docs/uml/aktivitaetsdiagramm-server.puml`
+- Aktivitäts-UML (Client): `docs/uml/aktivitaetsdiagramm-client.puml`
 
 ---
 
