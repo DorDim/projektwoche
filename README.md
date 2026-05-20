@@ -108,7 +108,7 @@ Hinweis: Das Linux-Skript versucht fehlende venv-Pakete (z. B. `python3-venv`) a
 - `DEMO_USERNAME`, `DEMO_PASSWORD` – Login für Demo-Konto
 - `DEMO_CLIENT_COUNT` – Anzahl Demo-Clients (mindestens 5)
 - `DEMO_SNAPSHOT_INTERVAL_SECONDS` – Intervall für neue Demo-Snapshots
-- `DATABASE_URL` – DB-Verbindung
+- `DATABASE_URL` – optionale DB-Override-URL (leer = wird automatisch aus `POSTGRES_*` gebaut)
 - `LOG_DATA_ACCESS_EVENTS` – optionales Logging von reinen Lesezugriffen (Analytics/Anomalien/Export), Standard `false`
 
 ---
@@ -136,3 +136,6 @@ Hinweis: Das Linux-Skript versucht fehlende venv-Pakete (z. B. `python3-venv`) a
   - Lösung ohne Datenübernahme: alte DB-Volumes entfernen und Container neu starten  
     `docker compose down -v && docker compose up -d --build`
   - Lösung mit Datenübernahme: zuerst Backup (z. B. `pg_dump`) aus alter Instanz erstellen, danach in neue 18er-Instanz einspielen
+- `password authentication failed for user "monitor_user"`:
+  - bei bestehendem Daten-Volume gilt weiter das alte DB-Passwort aus der ersten Initialisierung
+  - entweder altes Passwort in `.env` setzen oder Volume zurücksetzen (`docker compose down -v`)

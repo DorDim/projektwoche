@@ -60,7 +60,12 @@ services:
       SERVER_API_KEY: ${SERVER_API_KEY:-change-me}
       START_ADMIN_USERNAME: ${START_ADMIN_USERNAME:-admin}
       START_ADMIN_PASSWORD: ${START_ADMIN_PASSWORD:-changeme-admin-password}
-      DATABASE_URL: ${DATABASE_URL:-postgresql+psycopg://monitor_user:monitor_password@postgres:5432/hardware_monitor}
+      DATABASE_URL: ${DATABASE_URL:-}
+      POSTGRES_DB: ${POSTGRES_DB:-hardware_monitor}
+      POSTGRES_USER: ${POSTGRES_USER:-monitor_user}
+      POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:-monitor_password}
+      POSTGRES_HOST: postgres
+      POSTGRES_PORT: "5432"
       STALE_AFTER_SECONDS: ${STALE_AFTER_SECONDS:-180}
       DB_POOL_SIZE: ${DB_POOL_SIZE:-10}
       DB_MAX_OVERFLOW: ${DB_MAX_OVERFLOW:-20}
