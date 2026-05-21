@@ -42,6 +42,7 @@ Abgedeckte Kernziele:
   - Dashboard (`/`)
   - Vergleich (`/compare`)
   - Nutzerverwaltung (`/users`)
+  - Handbuch (`/handbuch`)
 
 ### 2.2 Laufzeit-Datenfluss
 

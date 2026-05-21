@@ -55,6 +55,7 @@ docker compose logs -f server
 - `https://DEINE_DOMAIN/`
 - `https://DEINE_DOMAIN/compare`
 - `https://DEINE_DOMAIN/users`
+- `https://DEINE_DOMAIN/handbuch`
 
 ---
 
