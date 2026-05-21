@@ -1,0 +1,441 @@
+<!doctype html>
+<html lang="de">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>Handbuch - Hardwareueberwachung</title>
+  <meta name="description" content="Kunden- und Support-Handbuch für die Hardwareüberwachung" />
+  <script src="https://cdn.tailwindcss.com"></script>
+  <script>
+    tailwind.config = {
+      theme: {
+        extend: {
+          boxShadow: {
+            glow: "0 0 0 1px rgba(56,189,248,0.25), 0 10px 40px rgba(14,165,233,0.25)"
+          }
+        }
+      }
+    };
+  </script>
+  <style>
+    html { scroll-behavior: smooth; }
+    .glass {
+      background: rgba(15, 23, 42, 0.65);
+      backdrop-filter: blur(12px);
+      -webkit-backdrop-filter: blur(12px);
+    }
+    .reveal {
+      opacity: 0;
+      transform: translateY(18px);
+      transition: all 650ms ease;
+    }
+    .reveal.visible {
+      opacity: 1;
+      transform: translateY(0);
+    }
+    .pulse-slow { animation: pulseSlow 5s ease-in-out infinite; }
+    .float-slow { animation: floatSlow 7s ease-in-out infinite; }
+    @keyframes pulseSlow {
+      0%, 100% { opacity: 0.25; transform: scale(1); }
+      50% { opacity: 0.45; transform: scale(1.08); }
+    }
+    @keyframes floatSlow {
+      0%, 100% { transform: translateY(0px); }
+      50% { transform: translateY(-8px); }
+    }
+    @media print {
+      @page { margin: 16mm; }
+      body {
+        background: #fff !important;
+        color: #000 !important;
+      }
+      body * {
+        visibility: hidden !important;
+      }
+      #manual-content, #manual-content * {
+        visibility: visible !important;
+      }
+      #manual-content {
+        position: absolute;
+        left: 0;
+        top: 0;
+        width: 100%;
+        max-width: none !important;
+        color: #000 !important;
+        background: #fff !important;
+      }
+      #manual-content section,
+      #manual-content div,
+      #manual-content table,
+      #manual-content th,
+      #manual-content td,
+      #manual-content code {
+        background: transparent !important;
+        box-shadow: none !important;
+        border-color: #b0b0b0 !important;
+        color: #000 !important;
+      }
+      #manual-content h1,
+      #manual-content h2,
+      #manual-content h3,
+      #manual-content h4,
+      #manual-content p,
+      #manual-content li,
+      #manual-content span,
+      #manual-content strong,
+      #manual-content summary,
+      #manual-content a {
+        color: #000 !important;
+      }
+      header,
+      aside,
+      footer,
+      .pointer-events-none,
+      .no-print {
+        display: none !important;
+      }
+      .reveal {
+        opacity: 1 !important;
+        transform: none !important;
+      }
+      details {
+        display: block !important;
+        break-inside: avoid;
+        page-break-inside: avoid;
+      }
+      a::after { content: ""; }
+    }
+  </style>
+</head>
+<body class="min-h-screen bg-slate-950 text-slate-100">
+  <div class="pointer-events-none fixed inset-0 -z-10 overflow-hidden">
+    <div class="absolute -left-24 -top-24 h-72 w-72 rounded-full bg-cyan-500/30 blur-3xl pulse-slow"></div>
+    <div class="absolute right-0 top-1/3 h-80 w-80 rounded-full bg-violet-500/20 blur-3xl pulse-slow"></div>
+    <div class="absolute bottom-0 left-1/3 h-80 w-80 rounded-full bg-emerald-500/20 blur-3xl pulse-slow"></div>
+  </div>
+
+  <header class="sticky top-0 z-50 border-b border-slate-800/80 glass">
+    <div class="mx-auto flex max-w-7xl items-center justify-between px-4 py-3 sm:px-6 lg:px-8">
+      <div class="flex items-center gap-3">
+        <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-500 shadow-glow"></div>
+        <div>
+          <p class="text-sm text-cyan-300">Handbuch</p>
+          <h1 class="text-base font-semibold tracking-wide">Hardwareueberwachung</h1>
+        </div>
+      </div>
+      <div class="flex items-center gap-2 no-print">
+        <a href="#schnellstart" class="rounded-lg border border-cyan-400/40 bg-cyan-400/10 px-3 py-1.5 text-sm font-medium text-cyan-200 hover:bg-cyan-400/20">
+          Zum Schnellstart
+        </a>
+        <button onclick="printPlainText()" class="rounded-lg border border-slate-500/50 bg-slate-800/80 px-3 py-1.5 text-sm font-medium text-slate-100 hover:bg-slate-700">
+          Drucken (nur Text)
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <section class="mx-auto max-w-7xl px-4 pt-10 sm:px-6 lg:px-8">
+    <div class="relative overflow-hidden rounded-2xl border border-slate-800 bg-gradient-to-br from-slate-900 to-slate-900/50 p-8 shadow-2xl">
+      <div class="float-slow absolute -right-8 -top-10 h-36 w-36 rounded-full bg-cyan-500/20 blur-2xl"></div>
+      <div class="float-slow absolute -bottom-12 left-1/3 h-44 w-44 rounded-full bg-indigo-500/20 blur-2xl"></div>
+      <div class="relative">
+        <p class="mb-2 inline-flex items-center gap-2 rounded-full border border-emerald-400/40 bg-emerald-400/10 px-3 py-1 text-xs font-medium text-emerald-200">
+          Kunden- und Support-Version
+        </p>
+        <h2 class="text-3xl font-bold leading-tight sm:text-4xl">
+          Handbuch fuer Betrieb, Bedienung und Support
+        </h2>
+        <p class="mt-4 max-w-3xl text-slate-300">
+          Dieses Handbuch unterstuetzt Anwender, Administratoren und Support-Teams bei der taeglichen Arbeit
+          mit dem Monitoring-System - inklusive Klickanleitungen und standardisierten Support-Leitfaeden.
+        </p>
+      </div>
+    </div>
+  </section>
+
+  <main class="mx-auto grid max-w-7xl grid-cols-1 gap-6 px-4 py-8 sm:px-6 lg:grid-cols-12 lg:px-8">
+    <aside class="lg:col-span-3">
+      <nav class="sticky top-24 rounded-2xl border border-slate-800 bg-slate-900/70 p-4">
+        <h3 class="mb-3 text-sm font-semibold text-cyan-300">Inhaltsverzeichnis</h3>
+        <ul class="space-y-2 text-sm">
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#zielgruppe">1. Zielgruppe</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#schnellstart">2. Schnellstart</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#architektur">3. Architektur</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#rollen">4. Rollen & Rechte</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#seiten">5. Seitenuebersicht</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#bedienung">6. Schritt-fuer-Schritt</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#onboarding">7. Client-Onboarding</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#inventar">8. Inventarisierung</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#alerts">9. Alerts & Events</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#export">10. Exporte</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#support">11. Support-Leitfaeden</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#troubleshooting">12. Troubleshooting</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#sicherheit">13. Sicherheit</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#faq">14. FAQ</a></li>
+        </ul>
+      </nav>
+    </aside>
+
+    <article id="manual-content" class="space-y-6 lg:col-span-9">
+      <section id="zielgruppe" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">1) Zielgruppe und Zweck</h3>
+        <ul class="mt-3 list-disc space-y-1 pl-6 text-slate-300">
+          <li><strong>Anwender:</strong> taegliche Nutzung von Dashboard, Vergleich und Export.</li>
+          <li><strong>Administratoren:</strong> Benutzerverwaltung, Rechte, Onboarding, Alert-Regeln.</li>
+          <li><strong>Support:</strong> strukturierte Anwenderfuehrung und Fehleranalyse.</li>
+        </ul>
+      </section>
+
+      <section id="schnellstart" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">2) Schnellstart</h3>
+        <ol class="mt-3 list-decimal space-y-2 pl-6 text-slate-300">
+          <li><code class="rounded bg-slate-800 px-1.5 py-0.5">.env</code> aus <code class="rounded bg-slate-800 px-1.5 py-0.5">.env.example</code> erstellen.</li>
+          <li>Domain-, Admin- und PostgreSQL-Werte setzen.</li>
+          <li>Stack starten: <code class="rounded bg-slate-800 px-1.5 py-0.5">docker compose up -d --build</code></li>
+          <li>Aufrufen: <code class="rounded bg-slate-800 px-1.5 py-0.5">https://DEINE_DOMAIN</code></li>
+        </ol>
+      </section>
+
+      <section id="architektur" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">3) Systemarchitektur</h3>
+        <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">Traefik</p><p class="mt-1 text-xs text-slate-300">TLS + Routing</p></div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">FastAPI</p><p class="mt-1 text-xs text-slate-300">API + UI</p></div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">PostgreSQL</p><p class="mt-1 text-xs text-slate-300">Persistenz</p></div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">Client-Agent</p><p class="mt-1 text-xs text-slate-300">Register + Snapshots</p></div>
+        </div>
+      </section>
+
+      <section id="rollen" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">4) Rollen und Berechtigungen</h3>
+        <div class="mt-4 overflow-x-auto">
+          <table class="min-w-full text-sm">
+            <thead class="text-left text-cyan-200">
+              <tr><th class="border-b border-slate-700 px-3 py-2">Recht</th><th class="border-b border-slate-700 px-3 py-2">Bedeutung</th></tr>
+            </thead>
+            <tbody class="text-slate-300">
+              <tr><td class="border-b border-slate-800 px-3 py-2">view_dashboard</td><td class="border-b border-slate-800 px-3 py-2">Dashboard + Compare lesen</td></tr>
+              <tr><td class="border-b border-slate-800 px-3 py-2">add_clients</td><td class="border-b border-slate-800 px-3 py-2">Onboarding + Inventar bearbeiten</td></tr>
+              <tr><td class="border-b border-slate-800 px-3 py-2">delete_clients</td><td class="border-b border-slate-800 px-3 py-2">Clients loeschen</td></tr>
+              <tr><td class="border-b border-slate-800 px-3 py-2">manage_users</td><td class="border-b border-slate-800 px-3 py-2">Benutzer verwalten</td></tr>
+              <tr><td class="border-b border-slate-800 px-3 py-2">manage_alert_rules</td><td class="border-b border-slate-800 px-3 py-2">Regeln verwalten</td></tr>
+              <tr><td class="px-3 py-2">view_events</td><td class="px-3 py-2">Events einsehen</td></tr>
+            </tbody>
+          </table>
+        </div>
+        <div class="mt-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm text-amber-100">
+          Schutzregeln: kein Self-Delete, kein Self-Deactivate, keine Admin-Loeschung durch Nicht-Admins.
+        </div>
+      </section>
+
+      <section id="seiten" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">5) Seitenuebersicht</h3>
+        <div class="mt-4 grid gap-3 sm:grid-cols-3">
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">Dashboard</p><p class="mt-1 text-xs text-slate-300">Clients, Details, Inventar, Exporte, Alerts</p></div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">Compare</p><p class="mt-1 text-xs text-slate-300">Mehrere Clients vergleichen</p></div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">Users</p><p class="mt-1 text-xs text-slate-300">Benutzer, Rollen, Rechte</p></div>
+        </div>
+      </section>
+
+      <section id="bedienung" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">6) Schritt-fuer-Schritt Bedienung</h3>
+        <div class="mt-4 space-y-4">
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <h4 class="font-semibold text-cyan-200">A) Client auswaehlen und Details pruefen</h4>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-300">
+              <li>Navigation: <strong>Dashboard</strong>.</li>
+              <li>In der Client-Tabelle auf den gewuenschten Client klicken.</li>
+              <li>Im Detailbereich Snapshot, Laufwerke, Uptime und Hardware pruefen.</li>
+              <li>Zeitraum oben umstellen (z. B. 24h / 7 Tage), um Verlaufswerte zu filtern.</li>
+            </ol>
+          </div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <h4 class="font-semibold text-cyan-200">B) Vergleich mehrerer Clients</h4>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-300">
+              <li>Navigation: <strong>Compare</strong>.</li>
+              <li>Clients per Checkbox auswaehlen.</li>
+              <li>Vergleichswerte pruefen und Auffaelligkeiten identifizieren.</li>
+              <li>Bei Bedarf zurueck ins Dashboard und Client im Detail pruefen.</li>
+            </ol>
+          </div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <h4 class="font-semibold text-cyan-200">C) Inventardaten bearbeiten</h4>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-300">
+              <li>Im Dashboard einen Client auswaehlen.</li>
+              <li>Auf <strong>Inventardaten bearbeiten</strong> klicken.</li>
+              <li>Felder ausfuellen (z. B. Standort, Inventarnummer, Verantwortlicher).</li>
+              <li>Mit <strong>Speichern</strong> bestaetigen.</li>
+            </ol>
+          </div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <h4 class="font-semibold text-cyan-200">D) Export erzeugen</h4>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-300">
+              <li>Client im Dashboard auswaehlen.</li>
+              <li>Exportformat waehlen: JSON, CSV oder PDF.</li>
+              <li>Datei herunterladen und lokal speichern.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section id="onboarding" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">7) Client-Onboarding</h3>
+        <ol class="mt-3 list-decimal space-y-2 pl-6 text-slate-300">
+          <li>Dashboard oeffnen und auf <strong>Neuen Client hinzufuegen</strong> klicken.</li>
+          <li>Onboarding-Token erzeugen und Installationsbefehl kopieren.</li>
+          <li>Befehl auf Zielsystem ausfuehren (Windows/Linux).</li>
+          <li>Zurueck zur UI: <strong>Aktualisieren</strong> klicken.</li>
+          <li>Neuen Client in der Tabelle bestaetigen.</li>
+        </ol>
+      </section>
+
+      <section id="inventar" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">8) Inventarisierung</h3>
+        <p class="mt-3 text-slate-300">
+          Verfuegbare Felder: Standort, Inventarnummer, Seriennummer, Abteilung, verantwortliche Person,
+          Lieferant, Anschaffungsdatum, Anschaffungspreis, Garantie bis, Notizen.
+        </p>
+      </section>
+
+      <section id="alerts" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">9) Alerts & Events</h3>
+        <ul class="mt-3 list-disc space-y-1 pl-6 text-slate-300">
+          <li>Alert-Regeln werden serverseitig gegen Snapshots geprueft.</li>
+          <li>Bei Regelverletzung wird ein Alert-Eintrag erzeugt.</li>
+          <li>Event-Anzeige setzt das Recht <code class="rounded bg-slate-800 px-1 py-0.5">view_events</code> voraus.</li>
+        </ul>
+      </section>
+
+      <section id="export" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">10) Exportfunktionen</h3>
+        <div class="mt-3 grid gap-3 sm:grid-cols-3">
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">JSON</p><p class="text-xs text-slate-300 mt-1">Strukturierte Rohdaten</p></div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">CSV</p><p class="text-xs text-slate-300 mt-1">Tabellarische Auswertung</p></div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">PDF</p><p class="text-xs text-slate-300 mt-1">Bericht inkl. Inventar + letztem Snapshot</p></div>
+        </div>
+      </section>
+
+      <section id="support" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">11) Support-Leitfaeden (Anwenderfuehrung)</h3>
+        <div class="mt-4 space-y-4 text-slate-300">
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <h4 class="font-semibold text-cyan-200">Leitfaden 1: "Ich sehe meinen Client nicht"</h4>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm">
+              <li>Anwender auf <strong>Dashboard</strong> fuehren.</li>
+              <li><strong>Aktualisieren</strong> anklicken lassen.</li>
+              <li>Filter/Suche pruefen.</li>
+              <li>Wenn weiter unsichtbar: Agent-Status, Onboarding, Logs pruefen.</li>
+            </ol>
+          </div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <h4 class="font-semibold text-cyan-200">Leitfaden 2: "Ich kann keine Events sehen"</h4>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm">
+              <li>Im Dashboard Event-Bereich pruefen.</li>
+              <li>In <strong>Users</strong> Rechte des Kontos kontrollieren.</li>
+              <li><code class="rounded bg-slate-900 px-1 py-0.5">view_events</code> setzen.</li>
+              <li>Benutzer neu anmelden lassen.</li>
+            </ol>
+          </div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <h4 class="font-semibold text-cyan-200">Leitfaden 3: "Export funktioniert nicht"</h4>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm">
+              <li>Client im Dashboard auswaehlen lassen.</li>
+              <li>Export erneut ausloesen.</li>
+              <li>Downloadblocker pruefen.</li>
+              <li>Fehlermeldung dokumentieren und Server-Logs pruefen.</li>
+            </ol>
+          </div>
+          <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <h4 class="font-semibold text-cyan-200">Leitfaden 4: "Benutzer kann nicht deaktiviert werden"</h4>
+            <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm">
+              <li>Pruefen, ob es das aktuell angemeldete Konto ist.</li>
+              <li>Hinweis: Selbst-Deaktivierung ist systemseitig gesperrt.</li>
+              <li>Aenderung mit anderem berechtigten Konto durchfuehren.</li>
+            </ol>
+          </div>
+        </div>
+      </section>
+
+      <section id="troubleshooting" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">12) Troubleshooting</h3>
+        <div class="mt-3 space-y-3">
+          <details class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <summary class="cursor-pointer font-medium">Traefik liefert 404</summary>
+            <ul class="mt-2 list-disc pl-5 text-sm text-slate-300">
+              <li><code class="rounded bg-slate-900 px-1 py-0.5">TRAEFIK_DOMAIN</code> pruefen.</li>
+              <li><code class="rounded bg-slate-900 px-1 py-0.5">docker compose logs -f traefik</code></li>
+            </ul>
+          </details>
+          <details class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <summary class="cursor-pointer font-medium">Login-/Rechteproblem</summary>
+            <ul class="mt-2 list-disc pl-5 text-sm text-slate-300">
+              <li>Benutzer aktiv?</li>
+              <li>Rolle/Rechte korrekt?</li>
+              <li>Self-Deactivation ist bewusst blockiert.</li>
+            </ul>
+          </details>
+          <details class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
+            <summary class="cursor-pointer font-medium">Datenbankauth fehlgeschlagen</summary>
+            <ul class="mt-2 list-disc pl-5 text-sm text-slate-300">
+              <li><code class="rounded bg-slate-900 px-1 py-0.5">POSTGRES_PASSWORD</code> pruefen.</li>
+              <li>Bei alten Volumes Migrations-/Passworthistorie beachten.</li>
+            </ul>
+          </details>
+        </div>
+      </section>
+
+      <section id="sicherheit" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">13) Sicherheit</h3>
+        <ul class="mt-3 list-disc space-y-1 pl-6 text-slate-300">
+          <li>HTTPS/TLS fuer externe Zugriffe</li>
+          <li>Passwortpolicy (mind. 8 Zeichen + Sonderzeichen)</li>
+          <li>Token serverseitig gehasht</li>
+          <li>Rollenbasierte Zugriffskontrolle</li>
+        </ul>
+      </section>
+
+      <section id="faq" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
+        <h3 class="text-xl font-semibold text-cyan-300">14) FAQ</h3>
+        <div class="mt-3 space-y-3 text-slate-300">
+          <p><strong>Warum sehe ich keine Events?</strong><br />Es fehlt vermutlich das Recht <code class="rounded bg-slate-800 px-1 py-0.5">view_events</code>.</p>
+          <p><strong>Warum kann ich mich nicht selbst deaktivieren?</strong><br />Sicherheitsmechanismus gegen Kontoverlust.</p>
+          <p><strong>Warum sind Demo-Daten eingeschraenkt?</strong><br />Trennung von Demo- und Produktivsicht.</p>
+        </div>
+      </section>
+    </article>
+  </main>
+
+  <footer class="border-t border-slate-800 py-6 text-center text-xs text-slate-400">
+    Hierbei handelt es sich um ein Tool, das im Rahmen einer Projektarbeit entstanden ist.
+  </footer>
+
+  <script>
+    const observer = new IntersectionObserver((entries) => {
+      entries.forEach((entry) => {
+        if (entry.isIntersecting) entry.target.classList.add("visible");
+      });
+    }, { threshold: 0.1 });
+    document.querySelectorAll(".reveal").forEach((el) => observer.observe(el));
+
+    function printPlainText() {
+      window.print();
+    }
+
+    function openDetailsForPrint() {
+      document.querySelectorAll("details").forEach((d) => {
+        d.dataset.wasOpen = d.open ? "1" : "0";
+        d.open = true;
+      });
+    }
+
+    function restoreDetailsAfterPrint() {
+      document.querySelectorAll("details").forEach((d) => {
+        d.open = d.dataset.wasOpen === "1";
+      });
+    }
+
+    window.addEventListener("beforeprint", openDetailsForPrint);
+    window.addEventListener("afterprint", restoreDetailsAfterPrint);
+  </script>
+</body>
+</html>

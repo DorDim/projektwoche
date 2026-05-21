@@ -833,6 +833,11 @@ def users_page():
     return FileResponse(static_dir / "users.html")
 
 
+@app.get("/handbuch")
+def handbook_page():
+    return FileResponse(static_dir / "handbuch.html")
+
+
 @app.get("/health")
 def health():
     return {"status": "ok", "timestamp": datetime.now(timezone.utc)}
