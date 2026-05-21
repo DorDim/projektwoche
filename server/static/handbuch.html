@@ -3,7 +3,7 @@
 <head>
   <meta charset="UTF-8" />
   <meta name="viewport" content="width=device-width, initial-scale=1.0" />
-  <title>Handbuch - Hardwareueberwachung</title>
+  <title>Handbuch - Hardwareüberwachung</title>
   <meta name="description" content="Kunden- und Support-Handbuch für die Hardwareüberwachung" />
   <script src="https://cdn.tailwindcss.com"></script>
   <script>
@@ -120,7 +120,7 @@
         <div class="h-9 w-9 rounded-xl bg-gradient-to-br from-cyan-400 to-indigo-500 shadow-glow"></div>
         <div>
           <p class="text-sm text-cyan-300">Handbuch</p>
-          <h1 class="text-base font-semibold tracking-wide">Hardwareueberwachung</h1>
+          <h1 class="text-base font-semibold tracking-wide">Hardwareüberwachung</h1>
         </div>
       </div>
       <div class="flex items-center gap-2 no-print">
@@ -143,11 +143,11 @@
           Kunden- und Support-Version
         </p>
         <h2 class="text-3xl font-bold leading-tight sm:text-4xl">
-          Handbuch fuer Betrieb, Bedienung und Support
+          Handbuch für Betrieb, Bedienung und Support
         </h2>
         <p class="mt-4 max-w-3xl text-slate-300">
-          Dieses Handbuch unterstuetzt Anwender, Administratoren und Support-Teams bei der taeglichen Arbeit
-          mit dem Monitoring-System - inklusive Klickanleitungen und standardisierten Support-Leitfaeden.
+          Dieses Handbuch unterstützt Anwender, Administratoren und Support-Teams bei der täglichen Arbeit
+          mit dem Monitoring-System - inklusive Klickanleitungen und standardisierten Support-Leitfäden.
         </p>
       </div>
     </div>
@@ -162,13 +162,13 @@
           <li><a class="text-slate-300 hover:text-cyan-300" href="#schnellstart">2. Schnellstart</a></li>
           <li><a class="text-slate-300 hover:text-cyan-300" href="#architektur">3. Architektur</a></li>
           <li><a class="text-slate-300 hover:text-cyan-300" href="#rollen">4. Rollen & Rechte</a></li>
-          <li><a class="text-slate-300 hover:text-cyan-300" href="#seiten">5. Seitenuebersicht</a></li>
-          <li><a class="text-slate-300 hover:text-cyan-300" href="#bedienung">6. Schritt-fuer-Schritt</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#seiten">5. Seitenübersicht</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#bedienung">6. Schritt-für-Schritt</a></li>
           <li><a class="text-slate-300 hover:text-cyan-300" href="#onboarding">7. Client-Onboarding</a></li>
           <li><a class="text-slate-300 hover:text-cyan-300" href="#inventar">8. Inventarisierung</a></li>
           <li><a class="text-slate-300 hover:text-cyan-300" href="#alerts">9. Alerts & Events</a></li>
           <li><a class="text-slate-300 hover:text-cyan-300" href="#export">10. Exporte</a></li>
-          <li><a class="text-slate-300 hover:text-cyan-300" href="#support">11. Support-Leitfaeden</a></li>
+          <li><a class="text-slate-300 hover:text-cyan-300" href="#support">11. Support-Leitfäden</a></li>
           <li><a class="text-slate-300 hover:text-cyan-300" href="#troubleshooting">12. Troubleshooting</a></li>
           <li><a class="text-slate-300 hover:text-cyan-300" href="#sicherheit">13. Sicherheit</a></li>
           <li><a class="text-slate-300 hover:text-cyan-300" href="#faq">14. FAQ</a></li>
@@ -180,9 +180,9 @@
       <section id="zielgruppe" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
         <h3 class="text-xl font-semibold text-cyan-300">1) Zielgruppe und Zweck</h3>
         <ul class="mt-3 list-disc space-y-1 pl-6 text-slate-300">
-          <li><strong>Anwender:</strong> taegliche Nutzung von Dashboard, Vergleich und Export.</li>
+          <li><strong>Anwender:</strong> tägliche Nutzung von Dashboard, Vergleich und Export.</li>
           <li><strong>Administratoren:</strong> Benutzerverwaltung, Rechte, Onboarding, Alert-Regeln.</li>
-          <li><strong>Support:</strong> strukturierte Anwenderfuehrung und Fehleranalyse.</li>
+          <li><strong>Support:</strong> strukturierte Anwenderführung und Fehleranalyse.</li>
         </ul>
       </section>
 
@@ -197,7 +197,7 @@
       </section>
 
       <section id="architektur" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <h3 class="text-xl font-semibold text-cyan-300">3) Systemarchitektur</h3>
+          <h3 class="text-xl font-semibold text-cyan-300">3) Systemarchitektur</h3>
         <div class="mt-4 grid gap-4 sm:grid-cols-2 lg:grid-cols-4">
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">Traefik</p><p class="mt-1 text-xs text-slate-300">TLS + Routing</p></div>
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">FastAPI</p><p class="mt-1 text-xs text-slate-300">API + UI</p></div>
@@ -216,7 +216,7 @@
             <tbody class="text-slate-300">
               <tr><td class="border-b border-slate-800 px-3 py-2">view_dashboard</td><td class="border-b border-slate-800 px-3 py-2">Dashboard + Compare lesen</td></tr>
               <tr><td class="border-b border-slate-800 px-3 py-2">add_clients</td><td class="border-b border-slate-800 px-3 py-2">Onboarding + Inventar bearbeiten</td></tr>
-              <tr><td class="border-b border-slate-800 px-3 py-2">delete_clients</td><td class="border-b border-slate-800 px-3 py-2">Clients loeschen</td></tr>
+              <tr><td class="border-b border-slate-800 px-3 py-2">delete_clients</td><td class="border-b border-slate-800 px-3 py-2">Clients löschen</td></tr>
               <tr><td class="border-b border-slate-800 px-3 py-2">manage_users</td><td class="border-b border-slate-800 px-3 py-2">Benutzer verwalten</td></tr>
               <tr><td class="border-b border-slate-800 px-3 py-2">manage_alert_rules</td><td class="border-b border-slate-800 px-3 py-2">Regeln verwalten</td></tr>
               <tr><td class="px-3 py-2">view_events</td><td class="px-3 py-2">Events einsehen</td></tr>
@@ -224,12 +224,12 @@
           </table>
         </div>
         <div class="mt-4 rounded-xl border border-amber-400/40 bg-amber-400/10 p-4 text-sm text-amber-100">
-          Schutzregeln: kein Self-Delete, kein Self-Deactivate, keine Admin-Loeschung durch Nicht-Admins.
+          Schutzregeln: kein Self-Delete, kein Self-Deactivate, keine Admin-Löschung durch Nicht-Admins.
         </div>
       </section>
 
       <section id="seiten" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <h3 class="text-xl font-semibold text-cyan-300">5) Seitenuebersicht</h3>
+        <h3 class="text-xl font-semibold text-cyan-300">5) Seitenübersicht</h3>
         <div class="mt-4 grid gap-3 sm:grid-cols-3">
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">Dashboard</p><p class="mt-1 text-xs text-slate-300">Clients, Details, Inventar, Exporte, Alerts</p></div>
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4"><p class="font-semibold">Compare</p><p class="mt-1 text-xs text-slate-300">Mehrere Clients vergleichen</p></div>
@@ -238,14 +238,14 @@
       </section>
 
       <section id="bedienung" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <h3 class="text-xl font-semibold text-cyan-300">6) Schritt-fuer-Schritt Bedienung</h3>
+        <h3 class="text-xl font-semibold text-cyan-300">6) Schritt-für-Schritt Bedienung</h3>
         <div class="mt-4 space-y-4">
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
-            <h4 class="font-semibold text-cyan-200">A) Client auswaehlen und Details pruefen</h4>
+            <h4 class="font-semibold text-cyan-200">A) Client auswählen und Details prüfen</h4>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-300">
               <li>Navigation: <strong>Dashboard</strong>.</li>
-              <li>In der Client-Tabelle auf den gewuenschten Client klicken.</li>
-              <li>Im Detailbereich Snapshot, Laufwerke, Uptime und Hardware pruefen.</li>
+              <li>In der Client-Tabelle auf den gewünschten Client klicken.</li>
+              <li>Im Detailbereich Snapshot, Laufwerke, Uptime und Hardware prüfen.</li>
               <li>Zeitraum oben umstellen (z. B. 24h / 7 Tage), um Verlaufswerte zu filtern.</li>
             </ol>
           </div>
@@ -253,25 +253,25 @@
             <h4 class="font-semibold text-cyan-200">B) Vergleich mehrerer Clients</h4>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-300">
               <li>Navigation: <strong>Compare</strong>.</li>
-              <li>Clients per Checkbox auswaehlen.</li>
-              <li>Vergleichswerte pruefen und Auffaelligkeiten identifizieren.</li>
-              <li>Bei Bedarf zurueck ins Dashboard und Client im Detail pruefen.</li>
+              <li>Clients per Checkbox auswählen.</li>
+              <li>Vergleichswerte prüfen und Auffälligkeiten identifizieren.</li>
+              <li>Bei Bedarf zurück ins Dashboard und Client im Detail prüfen.</li>
             </ol>
           </div>
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <h4 class="font-semibold text-cyan-200">C) Inventardaten bearbeiten</h4>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-300">
-              <li>Im Dashboard einen Client auswaehlen.</li>
+              <li>Im Dashboard einen Client auswählen.</li>
               <li>Auf <strong>Inventardaten bearbeiten</strong> klicken.</li>
-              <li>Felder ausfuellen (z. B. Standort, Inventarnummer, Verantwortlicher).</li>
-              <li>Mit <strong>Speichern</strong> bestaetigen.</li>
+              <li>Felder ausfüllen (z. B. Standort, Inventarnummer, Verantwortlicher).</li>
+              <li>Mit <strong>Speichern</strong> bestätigen.</li>
             </ol>
           </div>
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <h4 class="font-semibold text-cyan-200">D) Export erzeugen</h4>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm text-slate-300">
-              <li>Client im Dashboard auswaehlen.</li>
-              <li>Exportformat waehlen: JSON, CSV oder PDF.</li>
+              <li>Client im Dashboard auswählen.</li>
+              <li>Exportformat wählen: JSON, CSV oder PDF.</li>
               <li>Datei herunterladen und lokal speichern.</li>
             </ol>
           </div>
@@ -281,18 +281,18 @@
       <section id="onboarding" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
         <h3 class="text-xl font-semibold text-cyan-300">7) Client-Onboarding</h3>
         <ol class="mt-3 list-decimal space-y-2 pl-6 text-slate-300">
-          <li>Dashboard oeffnen und auf <strong>Neuen Client hinzufuegen</strong> klicken.</li>
+          <li>Dashboard öffnen und auf <strong>Neuen Client hinzufügen</strong> klicken.</li>
           <li>Onboarding-Token erzeugen und Installationsbefehl kopieren.</li>
-          <li>Befehl auf Zielsystem ausfuehren (Windows/Linux).</li>
-          <li>Zurueck zur UI: <strong>Aktualisieren</strong> klicken.</li>
-          <li>Neuen Client in der Tabelle bestaetigen.</li>
+              <li>Befehl auf Zielsystem ausführen (Windows/Linux).</li>
+          <li>Zurück zur UI: <strong>Aktualisieren</strong> klicken.</li>
+          <li>Neuen Client in der Tabelle bestätigen.</li>
         </ol>
       </section>
 
       <section id="inventar" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
         <h3 class="text-xl font-semibold text-cyan-300">8) Inventarisierung</h3>
         <p class="mt-3 text-slate-300">
-          Verfuegbare Felder: Standort, Inventarnummer, Seriennummer, Abteilung, verantwortliche Person,
+          Verfügbare Felder: Standort, Inventarnummer, Seriennummer, Abteilung, verantwortliche Person,
           Lieferant, Anschaffungsdatum, Anschaffungspreis, Garantie bis, Notizen.
         </p>
       </section>
@@ -300,7 +300,7 @@
       <section id="alerts" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
         <h3 class="text-xl font-semibold text-cyan-300">9) Alerts & Events</h3>
         <ul class="mt-3 list-disc space-y-1 pl-6 text-slate-300">
-          <li>Alert-Regeln werden serverseitig gegen Snapshots geprueft.</li>
+          <li>Alert-Regeln werden serverseitig gegen Snapshots geprüft.</li>
           <li>Bei Regelverletzung wird ein Alert-Eintrag erzeugt.</li>
           <li>Event-Anzeige setzt das Recht <code class="rounded bg-slate-800 px-1 py-0.5">view_events</code> voraus.</li>
         </ul>
@@ -316,21 +316,21 @@
       </section>
 
       <section id="support" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
-        <h3 class="text-xl font-semibold text-cyan-300">11) Support-Leitfaeden (Anwenderfuehrung)</h3>
+        <h3 class="text-xl font-semibold text-cyan-300">11) Support-Leitfäden (Anwenderführung)</h3>
         <div class="mt-4 space-y-4 text-slate-300">
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <h4 class="font-semibold text-cyan-200">Leitfaden 1: "Ich sehe meinen Client nicht"</h4>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm">
-              <li>Anwender auf <strong>Dashboard</strong> fuehren.</li>
+              <li>Anwender auf <strong>Dashboard</strong> führen.</li>
               <li><strong>Aktualisieren</strong> anklicken lassen.</li>
-              <li>Filter/Suche pruefen.</li>
-              <li>Wenn weiter unsichtbar: Agent-Status, Onboarding, Logs pruefen.</li>
+              <li>Filter/Suche prüfen.</li>
+              <li>Wenn weiter unsichtbar: Agent-Status, Onboarding, Logs prüfen.</li>
             </ol>
           </div>
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <h4 class="font-semibold text-cyan-200">Leitfaden 2: "Ich kann keine Events sehen"</h4>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm">
-              <li>Im Dashboard Event-Bereich pruefen.</li>
+              <li>Im Dashboard Event-Bereich prüfen.</li>
               <li>In <strong>Users</strong> Rechte des Kontos kontrollieren.</li>
               <li><code class="rounded bg-slate-900 px-1 py-0.5">view_events</code> setzen.</li>
               <li>Benutzer neu anmelden lassen.</li>
@@ -339,18 +339,18 @@
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <h4 class="font-semibold text-cyan-200">Leitfaden 3: "Export funktioniert nicht"</h4>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm">
-              <li>Client im Dashboard auswaehlen lassen.</li>
-              <li>Export erneut ausloesen.</li>
-              <li>Downloadblocker pruefen.</li>
-              <li>Fehlermeldung dokumentieren und Server-Logs pruefen.</li>
+              <li>Client im Dashboard auswählen lassen.</li>
+              <li>Export erneut auslösen.</li>
+              <li>Downloadblocker prüfen.</li>
+              <li>Fehlermeldung dokumentieren und Server-Logs prüfen.</li>
             </ol>
           </div>
           <div class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <h4 class="font-semibold text-cyan-200">Leitfaden 4: "Benutzer kann nicht deaktiviert werden"</h4>
             <ol class="mt-2 list-decimal space-y-1 pl-5 text-sm">
-              <li>Pruefen, ob es das aktuell angemeldete Konto ist.</li>
+              <li>Prüfen, ob es das aktuell angemeldete Konto ist.</li>
               <li>Hinweis: Selbst-Deaktivierung ist systemseitig gesperrt.</li>
-              <li>Aenderung mit anderem berechtigten Konto durchfuehren.</li>
+              <li>Änderung mit anderem berechtigten Konto durchführen.</li>
             </ol>
           </div>
         </div>
@@ -362,7 +362,7 @@
           <details class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <summary class="cursor-pointer font-medium">Traefik liefert 404</summary>
             <ul class="mt-2 list-disc pl-5 text-sm text-slate-300">
-              <li><code class="rounded bg-slate-900 px-1 py-0.5">TRAEFIK_DOMAIN</code> pruefen.</li>
+              <li><code class="rounded bg-slate-900 px-1 py-0.5">TRAEFIK_DOMAIN</code> prüfen.</li>
               <li><code class="rounded bg-slate-900 px-1 py-0.5">docker compose logs -f traefik</code></li>
             </ul>
           </details>
@@ -377,7 +377,7 @@
           <details class="rounded-xl border border-slate-700 bg-slate-800/60 p-4">
             <summary class="cursor-pointer font-medium">Datenbankauth fehlgeschlagen</summary>
             <ul class="mt-2 list-disc pl-5 text-sm text-slate-300">
-              <li><code class="rounded bg-slate-900 px-1 py-0.5">POSTGRES_PASSWORD</code> pruefen.</li>
+              <li><code class="rounded bg-slate-900 px-1 py-0.5">POSTGRES_PASSWORD</code> prüfen.</li>
               <li>Bei alten Volumes Migrations-/Passworthistorie beachten.</li>
             </ul>
           </details>
@@ -387,7 +387,7 @@
       <section id="sicherheit" class="reveal rounded-2xl border border-slate-800 bg-slate-900/70 p-6">
         <h3 class="text-xl font-semibold text-cyan-300">13) Sicherheit</h3>
         <ul class="mt-3 list-disc space-y-1 pl-6 text-slate-300">
-          <li>HTTPS/TLS fuer externe Zugriffe</li>
+          <li>HTTPS/TLS für externe Zugriffe</li>
           <li>Passwortpolicy (mind. 8 Zeichen + Sonderzeichen)</li>
           <li>Token serverseitig gehasht</li>
           <li>Rollenbasierte Zugriffskontrolle</li>
@@ -399,7 +399,7 @@
         <div class="mt-3 space-y-3 text-slate-300">
           <p><strong>Warum sehe ich keine Events?</strong><br />Es fehlt vermutlich das Recht <code class="rounded bg-slate-800 px-1 py-0.5">view_events</code>.</p>
           <p><strong>Warum kann ich mich nicht selbst deaktivieren?</strong><br />Sicherheitsmechanismus gegen Kontoverlust.</p>
-          <p><strong>Warum sind Demo-Daten eingeschraenkt?</strong><br />Trennung von Demo- und Produktivsicht.</p>
+          <p><strong>Warum sind Demo-Daten eingeschränkt?</strong><br />Trennung von Demo- und Produktivsicht.</p>
         </div>
       </section>
     </article>

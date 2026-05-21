@@ -1,4 +1,4 @@
-# Anwenderdokumentation - Hardwareueberwachung
+# Anwenderdokumentation - Hardwareüberwachung
 
 Diese Anleitung richtet sich an Admins und Anwender im Tagesbetrieb.
 Die Inhalte sind praxisnah als Szenarien aufgebaut.
@@ -7,12 +7,12 @@ Die Inhalte sind praxisnah als Szenarien aufgebaut.
 
 ## 1. Schnellstart
 
-1. URL der Anwendung oeffnen (z. B. `https://monitor.example.com`).
+1. URL der Anwendung öffnen (z. B. `https://monitor.example.com`).
 2. Mit Benutzername und Passwort anmelden.
-3. Im Dashboard einen Client auswaehlen.
-4. Werte, Historie, Alerts und Inventardaten pruefen.
+3. Im Dashboard einen Client auswählen.
+4. Werte, Historie, Alerts und Inventardaten prüfen.
 
-Wenn keine Daten sichtbar sind: **Aktualisieren** ausfuehren.
+Wenn keine Daten sichtbar sind: **Aktualisieren** ausführen.
 
 ---
 
@@ -20,7 +20,7 @@ Wenn keine Daten sichtbar sind: **Aktualisieren** ausfuehren.
 
 ### Navigation
 - **Dashboard**: Client-Liste, Details, Inventarisierung, Analytics, Alerts, Export
-- **Vergleich**: Gegenueberstellung mehrerer Clients
+- **Vergleich**: Gegenüberstellung mehrerer Clients
 - **Nutzer**: Benutzerverwaltung (nur mit entsprechender Berechtigung)
 
 ### Rollen-/Rechtekurzinfo
@@ -29,8 +29,8 @@ Wenn keine Daten sichtbar sind: **Aktualisieren** ausfuehren.
 |---|---|
 | `view_dashboard` | Dashboard und Vergleich sehen |
 | `add_clients` | Onboarding-Token erzeugen, Inventardaten bearbeiten |
-| `delete_clients` | Clients loeschen |
-| `manage_users` | Benutzer anlegen/aendern/loeschen |
+| `delete_clients` | Clients löschen |
+| `manage_users` | Benutzer anlegen/ändern/löschen |
 | `manage_alert_rules` | Alert-Regeln pflegen |
 | `view_events` | Event-Logs einsehen |
 
@@ -43,17 +43,17 @@ Benutzer mit passenden Rechten einrichten.
 
 ### Schritte
 1. Als Admin anmelden.
-2. Seite **Nutzer** oeffnen.
-3. Unter "Neuen Benutzer erstellen" ausfuellen:
+2. Seite **Nutzer** öffnen.
+3. Unter "Neuen Benutzer erstellen" ausfüllen:
    - Benutzername
    - Passwort (mind. 8 Zeichen + Sonderzeichen)
    - Rolle
    - Einzelrechte
-4. Speichern und mit Test-Login pruefen.
+4. Speichern und mit Test-Login prüfen.
 
 Hinweis:
-- Nicht-Admins koennen keine Admin-Benutzer loeschen/bearbeiten.
-- Eigenes Benutzerkonto kann nicht geloescht werden.
+- Nicht-Admins können keine Admin-Benutzer löschen/bearbeiten.
+- Eigenes Benutzerkonto kann nicht gelöscht werden.
 
 ---
 
@@ -63,23 +63,23 @@ Hinweis:
 Recht `add_clients`.
 
 ### Schritte
-1. Dashboard -> **Neuen Client hinzufuegen**.
+1. Dashboard -> **Neuen Client hinzufügen**.
 2. Token erzeugen und kopieren.
-3. Installationsbefehl auf Zielgeraet ausfuehren (Windows oder Linux).
-4. Zurueck im Dashboard aktualisieren.
-5. Client in der Liste pruefen.
+3. Installationsbefehl auf Zielgerät ausführen (Windows oder Linux).
+4. Zurück im Dashboard aktualisieren.
+5. Client in der Liste prüfen.
 
 ---
 
 ## 5. Szenario: Inventardaten pflegen
 
 ### Ziel
-Technische Daten und organisatorische Inventarinformationen verknuepfen.
+Technische Daten und organisatorische Inventarinformationen verknüpfen.
 
 ### Schritte
-1. Im Dashboard einen Client waehlen.
+1. Im Dashboard einen Client wählen.
 2. Im Bereich **Inventarisierung** auf "Inventardaten bearbeiten" klicken.
-3. Felder fuellen, z. B.:
+3. Felder füllen, z. B.:
    - Standort
    - Inventar-Nummer
    - Seriennummer
@@ -94,38 +94,38 @@ Technische Daten und organisatorische Inventarinformationen verknuepfen.
 
 Empfohlener Ablauf je Client:
 1. Zeitraum setzen (1h, 6h, 24h, 7d, 30d, Alles).
-2. Durchschnittswerte im Zeitraum pruefen.
+2. Durchschnittswerte im Zeitraum prüfen.
 3. Historie "Freier Speicher", Uptime-Verlauf und Laufwerksauslastung ansehen.
-4. Auffaelligkeiten und aktuelle Alerts kontrollieren.
-5. Falls noetig Export erstellen (JSON/CSV/PDF).
+4. Auffälligkeiten und aktuelle Alerts kontrollieren.
+5. Falls nötig Export erstellen (JSON/CSV/PDF).
 
 Praxisbeispiele:
-- stark sinkender freier Speicher -> Speicherengpass pruefen
-- abrupter Uptime-Abfall -> moeglicher Neustart/Instabilitaet
+- stark sinkender freier Speicher -> Speicherengpass prüfen
+- abrupter Uptime-Abfall -> möglicher Neustart/Instabilität
 
 ---
 
 ## 7. Szenario: Clients vergleichen
 
-1. Seite **Vergleich** oeffnen.
+1. Seite **Vergleich** öffnen.
 2. Relevante Clients per Checkbox markieren.
 3. Vergleichskarten und Vergleichstabelle auswerten.
-4. Auffaellige Systeme im Dashboard detailliert untersuchen.
+4. Auffällige Systeme im Dashboard detailliert untersuchen.
 
 ---
 
 ## 8. Exporte nutzen
 
-Pro ausgewaehltem Client verfuegbar:
-- **JSON**: vollstaendige strukturierte Daten
-- **CSV**: tabellarisch (z. B. fuer Excel)
+- Pro ausgewähltem Client verfügbar:
+- **JSON**: vollständige strukturierte Daten
+- **CSV**: tabellarisch (z. B. für Excel)
 - **PDF**: kompakter Report inkl. Inventardaten und aktuellem Snapshot
 
 ---
 
 ## 9. Demo-Daten
 
-- Demo-Clients sind nur fuer den Demo-Benutzer sichtbar.
+- Demo-Clients sind nur für den Demo-Benutzer sichtbar.
 - Produktive Benutzer sehen keine Demo-Daten.
 
 ---
@@ -133,7 +133,7 @@ Pro ausgewaehltem Client verfuegbar:
 ## 10. Fehlerbehebung
 
 ### Login funktioniert nicht
-- Benutzername/Passwort pruefen
+- Benutzername/Passwort prüfen
 - Konto aktiv?
 - Rechte korrekt gesetzt?
 
@@ -143,11 +143,11 @@ Pro ausgewaehltem Client verfuegbar:
 - Dashboard aktualisiert?
 
 ### Keine Daten trotz sichtbarem Client
-- Netzwerkverbindung pruefen
-- Event-Log auf Fehler pruefen
-- Server-Logs pruefen
+- Netzwerkverbindung prüfen
+- Event-Log auf Fehler prüfen
+- Server-Logs prüfen
 
 ### Datenbankfehler im Compose-Betrieb
-- `POSTGRES_PASSWORD` in `.env` pruefen
+- `POSTGRES_PASSWORD` in `.env` prüfen
 - bei alten Volumes ggf. altes Passwort oder `docker compose down -v` (Datenverlust)
 

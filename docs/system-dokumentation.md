@@ -1,16 +1,16 @@
-# Systemdokumentation - Hardwareueberwachung
+# Systemdokumentation - Hardwareüberwachung
 
 ## 1. Zweck und Zielbild
 
-Die Anwendung dient zur zentralen Ueberwachung und Inventarisierung von IT-Endgeraeten.
+Die Anwendung dient zur zentralen Überwachung und Inventarisierung von IT-Endgeräten.
 Client-Agenten liefern in festen Intervallen Hardware- und Betriebsdaten an das Backend.
-Die Daten werden in PostgreSQL gespeichert und ueber ein Web-Frontend visualisiert.
+Die Daten werden in PostgreSQL gespeichert und über ein Web-Frontend visualisiert.
 
 Abgedeckte Kernziele:
 - konsolidierte Sicht auf alle angebundenen Clients
 - rollenbasierter Zugriff auf Monitoring- und Verwaltungsfunktionen
-- nachvollziehbare Protokollierung ueber Event-Logs
-- exportierbare Daten (JSON, CSV, PDF) fuer Nachweise und Reports
+- nachvollziehbare Protokollierung über Event-Logs
+- exportierbare Daten (JSON, CSV, PDF) für Nachweise und Reports
 
 ---
 
@@ -25,13 +25,13 @@ Abgedeckte Kernziele:
 
 - **Backend (FastAPI + SQLAlchemy)**
   - Authentifizierung und Session-Handling
-  - Rechtepruefung pro Endpoint
+  - Rechteprüfung pro Endpoint
   - Persistenz in PostgreSQL
   - Analytics, Anomalieerkennung, Export
 
 - **Datenbank (PostgreSQL 18, alpine)**
   - zentrale Persistenz aller fachlichen Daten
-  - Datenhaltung fuer Clients, Snapshots, Nutzer, Alerts und Events
+  - Datenhaltung für Clients, Snapshots, Nutzer, Alerts und Events
 
 - **Reverse Proxy (Traefik v3.7.1)**
   - HTTP->HTTPS-Weiterleitung
@@ -47,10 +47,10 @@ Abgedeckte Kernziele:
 ### 2.2 Laufzeit-Datenfluss
 
 1. Benutzer authentifiziert sich per Login (`/api/auth/login`).
-2. Session-Token wird als API-Key fuer weitere Requests genutzt.
+2. Session-Token wird als API-Key für weitere Requests genutzt.
 3. Agent registriert/sendet Snapshot (`/api/clients/register`, `/api/clients/{uid}/snapshots`).
 4. Backend speichert Daten, wertet Regeln aus, schreibt Events.
-5. Frontend laedt Daten (Clients, Details, Analytics, Alerts, Events) und rendert Visualisierungen.
+5. Frontend lädt Daten (Clients, Details, Analytics, Alerts, Events) und rendert Visualisierungen.
 
 ---
 
@@ -58,8 +58,8 @@ Abgedeckte Kernziele:
 
 ### 3.1 Transport und Netz
 
-- Externe Zugriffe laufen ueber HTTPS (Traefik + ACME).
-- Interne Service-Kommunikation laeuft im Compose-Netz.
+- Externe Zugriffe laufen über HTTPS (Traefik + ACME).
+- Interne Service-Kommunikation läuft im Compose-Netz.
 
 ### 3.2 Authentifizierung
 
@@ -79,8 +79,8 @@ Rechte:
 - `ingest_data` (Agent-/Onboarding-Token)
 
 Feste Sicherheitsregeln:
-- Benutzer darf sich nicht selbst loeschen.
-- Nicht-Admins duerfen keine Admin-Accounts loeschen/bearbeiten.
+- Benutzer darf sich nicht selbst löschen.
+- Nicht-Admins dürfen keine Admin-Accounts löschen/bearbeiten.
 - Passwortpolicy: mindestens 8 Zeichen + mindestens ein Sonderzeichen.
 
 ---
@@ -137,7 +137,7 @@ docker compose logs -f server
 
 ---
 
-## 6. API-Ueberblick
+## 6. API-Überblick
 
 ### 6.1 Auth
 - `POST /api/auth/login`
@@ -167,26 +167,26 @@ docker compose logs -f server
 
 ## 7. Betrieb und Fehlerbilder
 
-### 7.1 404 ueber Domain
-- `TRAEFIK_DOMAIN` pruefen (ohne Protokoll/Pfad)
+### 7.1 404 über Domain
+- `TRAEFIK_DOMAIN` prüfen (ohne Protokoll/Pfad)
 - Traefik-Logs auswerten
 
 ### 7.2 Kein TLS-Zertifikat
-- DNS-Ziel und Ports 80/443 pruefen
-- ACME-Eintraege in Traefik-Logs pruefen
+- DNS-Ziel und Ports 80/443 prüfen
+- ACME-Einträge in Traefik-Logs prüfen
 
 ### 7.3 PostgreSQL Auth-Fehler
-- `POSTGRES_PASSWORD` in `.env` pruefen
+- `POSTGRES_PASSWORD` in `.env` prüfen
 - bei bestehendem alten Volume ggf. altes Passwort verwenden oder `docker compose down -v` (Datenverlust)
 
 ### 7.4 Upgrade auf PostgreSQL 18
-- bestehende Alt-Volumes koennen inkompatibel sein
-- entweder Backup/Restore durchfuehren oder neues Volume starten
+- bestehende Alt-Volumes können inkompatibel sein
+- entweder Backup/Restore durchführen oder neues Volume starten
 
 ---
 
 ## 8. Zugehoerige Modellierungsartefakte
 
 - Use-Case-Diagramm: `docs/uml/anwendungsfalldiagramm.puml`
-- Aktivitaetsdiagramm (Server): `docs/uml/aktivitaetsdiagramm-server.puml`
-- Aktivitaetsdiagramm (Client): `docs/uml/aktivitaetsdiagramm-client.puml`
+- Aktivitätsdiagramm (Server): `docs/uml/aktivitaetsdiagramm-server.puml`
+- Aktivitätsdiagramm (Client): `docs/uml/aktivitaetsdiagramm-client.puml`
