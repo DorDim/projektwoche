@@ -129,6 +129,48 @@ Die Software dient der zentralen Überwachung und Inventarisierung von Endgerät
 - Aktiv/Deaktiv-Status
 - Schutzregeln für kritische Aktionen
 
+## Schritt-für-Schritt: Typische Bedienaufgaben (Anwender)
+
+### A) Im Dashboard einen Client auswählen und Details prüfen
+1. In der oberen Navigation auf **Dashboard** klicken.
+2. In der Client-Tabelle auf den gewünschten Client (Hostname/UID) klicken.
+3. Rechts/unterhalb im Detailbereich prüfen:
+   - Letzter Snapshot
+   - Laufwerke (frei/gesamt)
+   - Uptime
+   - Hardwaredetails
+4. Bei Bedarf oben den Zeitraum wechseln (z. B. 24h oder 7 Tage), damit Diagramme und Durchschnittswerte passend gefiltert werden.
+
+### B) Vergleich von mehreren Clients aufrufen
+1. In der Navigation auf **Compare** klicken.
+2. In der Liste die gewünschten Clients per Checkbox markieren.
+3. Vergleichswerte und Unterschiede prüfen.
+4. Bei Auffälligkeiten zurück ins **Dashboard** wechseln und betroffenen Client im Detail öffnen.
+
+### C) Inventardaten für ein Gerät pflegen
+1. **Dashboard** öffnen und Client auswählen.
+2. Auf **Inventardaten bearbeiten** (Modal öffnen) klicken.
+3. Felder ausfüllen (z. B. Standort, Inventarnummer, Verantwortliche Person).
+4. Auf **Speichern** klicken.
+5. Prüfen, ob die neuen Daten direkt in der Detailansicht sichtbar sind.
+
+### D) Export für einen Client erzeugen
+1. **Dashboard** öffnen und Client auswählen.
+2. Gewünschtes Exportformat anklicken:
+   - **JSON**
+   - **CSV**
+   - **PDF**
+3. Datei lokal speichern.
+4. Für Supportfälle Dateiname und Exportzeitpunkt im Ticket dokumentieren.
+
+### E) Onboarding eines neuen Clients (mit Berechtigung)
+1. **Dashboard** öffnen.
+2. Auf **Neuen Client hinzufügen** klicken.
+3. Token generieren und den angezeigten Installationsbefehl kopieren.
+4. Befehl auf Zielsystem ausführen (Windows/Linux).
+5. Zurück im Dashboard auf **Aktualisieren** klicken.
+6. Prüfen, ob der neue Client in der Tabelle erscheint.
+
 <div style="page-break-after: always;"></div>
 
 # 5) Client-Onboarding
@@ -200,6 +242,39 @@ Verfügbare Formate:
 - Maßnahme
 - Ergebnis
 - ggf. Prävention
+
+## Support-Leitfaden: Anwender telefonisch/remote durch die UI führen
+
+### Leitfaden 1: „Ich sehe meinen Client nicht“
+1. Anwender auf **Dashboard** navigieren lassen.
+2. Anwender auf **Aktualisieren** hinweisen.
+3. Prüfen lassen, ob Such-/Filtereingaben gesetzt sind.
+4. Falls weiterhin unsichtbar:
+   - Onboarding-Schritt erneut starten
+   - Agent-Status auf Zielgerät prüfen
+   - Event-Log/Server-Logs gegenprüfen
+
+### Leitfaden 2: „Ich kann keine Events sehen“
+1. Anwender auf **Dashboard** führen.
+2. Prüfen, ob Event-Bereich fehlt oder leer ist.
+3. In **Users** die Benutzerrechte kontrollieren:
+   - `view_events` gesetzt?
+4. Nach Rechteänderung neu anmelden lassen.
+
+### Leitfaden 3: „Export funktioniert nicht“
+1. Anwender einen konkreten Client im Dashboard auswählen lassen.
+2. Exportformat erneut anklicken.
+3. Browser-Downloadblocker prüfen.
+4. Bei Fehlertext:
+   - Meldung wörtlich ins Ticket übernehmen
+   - Server-Logs prüfen
+   - bei Bedarf Testexport mit Adminkonto durchführen
+
+### Leitfaden 4: „Benutzer kann nicht deaktiviert werden“
+1. In **Users** prüfen, ob der betroffene Benutzer der aktuell angemeldete ist.
+2. Hinweis geben: Selbst-Deaktivierung ist absichtlich blockiert.
+3. Lösung:
+   - Mit anderem berechtigten Konto anmelden und gewünschten Benutzerstatus ändern.
 
 ---
 
