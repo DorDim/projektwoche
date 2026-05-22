@@ -1,1 +1,1 @@
-# Package marker for server module.
+# Paketmarker fuer das Server-Modul.

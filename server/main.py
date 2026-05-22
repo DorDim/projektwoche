@@ -1,3 +1,5 @@
+"""Hauptanwendung mit API-Endpunkten, Authentifizierung und UI-Seitenrouten."""
+
 import hashlib
 import io
 import logging
@@ -70,6 +72,7 @@ app.mount("/static", StaticFiles(directory=str(static_dir)), name="static")
 logger = logging.getLogger("hardware-monitor-server")
 logging.basicConfig(level=logging.INFO, format="%(asctime)s [%(levelname)s] %(message)s")
 
+# Vollstaendige Rechtebasis; Admin-Rollen erhalten immer alle Rechte.
 ALL_PERMISSIONS = {
     "view_dashboard": True,
     "add_clients": True,
@@ -106,6 +109,7 @@ CLIENT_INVENTORY_COLUMNS: dict[str, str] = {
 
 
 def ensure_client_inventory_columns() -> None:
+    # Kleine Start-Migration: fehlende Inventarspalten automatisch nachziehen.
     inspector = inspect(engine)
     existing_columns = {column["name"] for column in inspector.get_columns("clients")}
     missing_columns = [
@@ -152,6 +156,7 @@ def log_event_safe(
 
 
 def normalize_permissions(permissions: dict | None, *, role: str) -> dict[str, bool]:
+    # Nur bekannte Rechte uebernehmen und sichere Defaults garantieren.
     if role == "admin":
         return dict(ALL_PERMISSIONS)
     merged = dict(DEFAULT_USER_PERMISSIONS)
@@ -166,6 +171,7 @@ def hash_token(token: str) -> str:
 
 
 def hash_password(password: str, *, salt_hex: str | None = None) -> str:
+    # Passwort wird mit Salt + PBKDF2 gehasht und als "salt$hash" gespeichert.
     salt = bytes.fromhex(salt_hex) if salt_hex else secrets.token_bytes(16)
     digest = hashlib.pbkdf2_hmac("sha256", password.encode("utf-8"), salt, 200_000)
     return f"{salt.hex()}${digest.hex()}"
@@ -258,6 +264,7 @@ def resolve_auth_context(
     x_api_key: Annotated[str | None, Header()] = None,
     db: Session = Depends(get_db),
 ) -> dict[str, object]:
+    # API-Key kann statischer Server-Key, User-Session oder Agent-Token sein.
     if not x_api_key:
         raise HTTPException(status_code=401, detail="fehlender API-Schlüssel")
     if x_api_key == settings.api_key:
@@ -276,7 +283,7 @@ def resolve_auth_context(
         )
     )
     if token is not None:
-        # Onboarding/agent tokens are restricted to ingest operations only.
+        # Onboarding-/Agent-Tokens duerfen nur Datenaufnahme-Endpunkte nutzen.
         return {
             "role": "agent",
             "username": token.name,
@@ -342,6 +349,7 @@ def require_admin_api_key(auth_context: dict[str, object] = Depends(resolve_auth
 
 
 def require_permission(permission: str):
+    # Fabrik fuer endpoint-spezifische Rechtepruefungen.
     def checker(auth_context: dict[str, object] = Depends(resolve_auth_context)):
         permissions = auth_context.get("permissions") or {}
         if auth_context.get("role") == "admin" or permissions.get(permission):
@@ -428,6 +436,7 @@ def trend_per_hour(values: list[float], timestamps: list[datetime]) -> float | N
 
 
 def analytics_for_snapshots(client_uid: str, snapshots: list[HardwareSnapshot]) -> ClientAnalyticsOut:
+    # Reihenfolge fuer Trends und Mittelwerte wird auf chronologisch normalisiert.
     if not snapshots:
         return ClientAnalyticsOut(
             client_uid=client_uid,
@@ -474,6 +483,7 @@ def analytics_for_snapshots(client_uid: str, snapshots: list[HardwareSnapshot]) 
 
 
 def detect_anomalies(snapshots: list[HardwareSnapshot]) -> list[AnomalyOut]:
+    # Einfache Heuristiken fuer Speicherknappheit und Uptime-Spruenge.
     if not snapshots:
         return []
     ordered = sorted(snapshots, key=lambda item: item.collected_at)
@@ -550,6 +560,7 @@ def _demo_permissions() -> dict[str, bool]:
 
 
 def ensure_demo_user(db: Session) -> None:
+    # Demo-Benutzer bei Aktivierung einmalig erzeugen bzw. aktualisieren.
     if not settings.enable_demo_data:
         return
 
@@ -657,6 +668,7 @@ def _build_demo_snapshot(client: Client, client_index: int, collected_at: dateti
 
 
 def ensure_demo_clients_and_data(db: Session) -> None:
+    # Demo-Clients inkl. Verlaufdaten erzeugen, damit die UI ohne echte Agenten nutzbar ist.
     if not settings.enable_demo_data:
         return
 
@@ -706,7 +718,7 @@ def ensure_demo_clients_and_data(db: Session) -> None:
             .limit(1)
         )
 
-        # Initial history for demo visualization.
+        # Startverlauf fuer Demo-Visualisierung aufbauen.
         if latest is None:
             for hours_back in range(24, 0, -1):
                 collected_at = now - timedelta(hours=hours_back)

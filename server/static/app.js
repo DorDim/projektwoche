@@ -1,3 +1,4 @@
+// Globaler UI-Zustand (aktuell gewaehlter Client, Charts, Auth, Caches).
 let selectedClientUid = null;
 let historyChart = null;
 let uptimeChart = null;
@@ -35,6 +36,7 @@ const RULE_METRIC_LABELS = {
   uptime_seconds: "Uptime (Sekunden)",
 };
 
+// Kurze DOM-Helfer fuer konsistente Event-/Elementzugriffe.
 function getEl(id) {
   return document.getElementById(id);
 }
@@ -76,6 +78,7 @@ function setCurrentApiKey(newKey, persist = true) {
 }
 
 function hasPermission(permissionName) {
+  // Admin darf alles; normale User richten sich nach permissions-Objekt aus /api/me.
   if (!authContext) return false;
   if (authContext.role === "admin") return true;
   return Boolean(authContext.permissions && authContext.permissions[permissionName]);
@@ -107,6 +110,7 @@ function setPermissionControlsDisabled(prefix, isDisabled) {
 }
 
 function updateAuthUi() {
+  // Sichtbarkeit von Menues/Bloecken direkt aus dem aktuellen Rechtesatz ableiten.
   const state = getEl("authState");
   if (!state) return;
   const username = authContext?.username || "-";
@@ -152,7 +156,7 @@ function loadSavedApiKey() {
       currentApiKey = saved.trim();
     }
   } catch (_error) {
-    // Local storage might be disabled in hardened browsers.
+    // localStorage kann in restriktiven Browser-Profilen deaktiviert sein.
   }
 }
 
@@ -164,7 +168,7 @@ function persistApiKey() {
       localStorage.removeItem(API_KEY_STORAGE_KEY);
     }
   } catch (_error) {
-    // Ignore storage errors; the app still works without persistence.
+    // Ohne Persistence bleibt die App nutzbar, nur ohne Token-Merken.
   }
 }
 
@@ -302,6 +306,7 @@ function getTimeRangeHours() {
 }
 
 function filterSnapshotsByTimeRange(snapshots) {
+  // Zeitfensterfilter fuer Verlaufsgrafen; faellt nie auf leere Reihe zurueck.
   if (!snapshots || snapshots.length === 0) return [];
   const hours = getTimeRangeHours();
   if (hours === null) return [...snapshots];
@@ -320,6 +325,7 @@ function filterAnomaliesByTimeRange(anomalies) {
 }
 
 async function apiGet(path) {
+  // Auth-Wrapper: bei 401 wird die Session zentral invalidiert.
   if (!currentApiKey) {
     throw new Error("Nicht angemeldet.");
   }
@@ -334,6 +340,7 @@ async function apiGet(path) {
 }
 
 async function apiPost(path, payload = {}) {
+  // Einheitlicher POST-Wrapper fuer JSON-Endpunkte mit Session-Handling.
   if (!currentApiKey) {
     throw new Error("Nicht angemeldet.");
   }
@@ -355,6 +362,7 @@ async function apiPost(path, payload = {}) {
 }
 
 async function apiPatch(path, payload = {}) {
+  // Einheitlicher PATCH-Wrapper fuer Formular-/Modal-Speicherungen.
   if (!currentApiKey) {
     throw new Error("Nicht angemeldet.");
   }
@@ -374,6 +382,7 @@ async function apiPatch(path, payload = {}) {
 }
 
 async function apiDelete(path) {
+  // Einheitlicher DELETE-Wrapper inkl. Logout bei abgelaufener Session.
   if (!currentApiKey) {
     throw new Error("Nicht angemeldet.");
   }
@@ -1799,7 +1808,7 @@ async function handleLogout() {
     try {
       await apiPost("/api/auth/logout", {});
     } catch (_error) {
-      // Ignore logout API errors and clear local session anyway.
+      // Logout-Fehler ignorieren; lokale Session wird trotzdem beendet.
     }
   }
   await forceLogout("Abgemeldet.");

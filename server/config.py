@@ -1,9 +1,12 @@
+"""Zentrale Laufzeitkonfiguration aus Umgebungsvariablen."""
+
 import os
 from dataclasses import dataclass
 from urllib.parse import parse_qsl, urlencode, urlsplit, urlunsplit
 
 
 def _env_bool(name: str, default: str = "false") -> bool:
+    """Wandelt typische Wahr/Falsch-Strings aus der Umgebung in bool um."""
     value = os.getenv(name, default)
     return value.strip().lower() in {"1", "true", "yes", "on"}
 
@@ -27,6 +30,7 @@ class Settings:
 
     @property
     def normalized_database_url(self) -> str:
+        # Im Compose-Betrieb kann DATABASE_URL leer bleiben und aus POSTGRES_* gebaut werden.
         url = self.database_url.strip()
         if not url:
             pg_user = os.getenv("POSTGRES_USER", "monitor_user").strip() or "monitor_user"
@@ -36,7 +40,7 @@ class Settings:
             pg_port = os.getenv("POSTGRES_PORT", "5432").strip() or "5432"
             url = f"postgresql+psycopg://{pg_user}:{pg_password}@{pg_host}:{pg_port}/{pg_db}"
 
-        # Support common "postgres://" format by normalizing to SQLAlchemy dialect URL.
+        # Uebliche postgres:// Varianten auf das SQLAlchemy-Dialektformat normalisieren.
         if url.startswith("postgres://"):
             url = "postgresql+psycopg://" + url[len("postgres://") :]
         elif url.startswith("postgresql://"):
@@ -50,6 +54,7 @@ class Settings:
             )
 
         if self.db_sslmode and url.startswith("postgresql+psycopg://"):
+            # Bereits gesetzte Query-Parameter beibehalten und sslmode nur ergaenzen.
             parts = urlsplit(url)
             query = dict(parse_qsl(parts.query, keep_blank_values=True))
             query.setdefault("sslmode", self.db_sslmode)

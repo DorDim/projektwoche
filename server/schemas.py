@@ -1,3 +1,5 @@
+"""Pydantic-Schemas fuer API-Eingaben/-Ausgaben inkl. Validierungsregeln."""
+
 from datetime import date, datetime
 import re
 
@@ -8,6 +10,7 @@ PASSWORD_SPECIAL_CHAR_PATTERN = re.compile(r"[^A-Za-z0-9]")
 
 
 def validate_password_strength(value: str) -> str:
+    """Gemeinsame Passwortpolicy fuer Erstellen/Aendern von Benutzern."""
     if len(value) < 8:
         raise ValueError("Passwort muss mindestens 8 Zeichen lang sein")
     if PASSWORD_SPECIAL_CHAR_PATTERN.search(value) is None:
@@ -44,6 +47,7 @@ class RegisterClientResponse(BaseModel):
 
 
 class HardwareSnapshotIn(BaseModel):
+    """Eingabeschema fuer vom Agenten gesendete Snapshot-Daten."""
     hostname: str
     os_version: str | None = None
     collected_at: datetime | None = None
@@ -92,6 +96,7 @@ class ClientSnapshotSummary(BaseModel):
 
 
 class ClientOut(BaseModel):
+    """Ausgabeobjekt fuer Client-Liste inkl. Inventardaten und Snapshot-Kurzinfo."""
     client_uid: str
     hostname: str
     os_version: str | None
@@ -138,6 +143,7 @@ class CompareClientRow(BaseModel):
 
 
 class ClientInventoryUpdateIn(BaseModel):
+    """Eingabeschema fuer Inventar-Aenderungen im Dashboard-Modal."""
     location: str | None = None
     asset_tag: str | None = None
     serial_number: str | None = None
@@ -172,6 +178,7 @@ class OnboardingTokenOut(BaseModel):
 
 
 class LoginRequest(BaseModel):
+    """Login-Payload fuer die Webanwendung."""
     username: str
     password: str
 
@@ -191,6 +198,7 @@ class AuthContextOut(BaseModel):
 
 
 class ClientAnalyticsOut(BaseModel):
+    """Aggregierte Kennzahlen (Durchschnitt/Trend) fuer einen Client."""
     client_uid: str
     sample_count: int
     avg_disk_free_percent_min: float | None
@@ -220,6 +228,7 @@ class EventLogOut(BaseModel):
 
 
 class UserCreateIn(BaseModel):
+    """Eingabeschema zum Anlegen neuer Benutzerkonten."""
     username: str
     password: str
     role: str = "user"
@@ -233,6 +242,7 @@ class UserCreateIn(BaseModel):
 
 
 class UserUpdateIn(BaseModel):
+    """Eingabeschema fuer Teil-Updates vorhandener Benutzer."""
     password: str | None = None
     role: str | None = None
     permissions: dict[str, bool] | None = None

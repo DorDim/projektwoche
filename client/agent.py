@@ -1,3 +1,5 @@
+"""Agent-Hauptprozess: registriert den Client und sendet zyklische Snapshots."""
+
 import json
 import logging
 import time
@@ -24,6 +26,7 @@ def _client_id_path() -> Path:
 
 
 def load_or_create_client_uid() -> str:
+    # Persistente Client-ID laden, damit derselbe Host nicht mehrfach angelegt wird.
     path = _client_id_path()
     if path.exists():
         try:
@@ -41,6 +44,7 @@ def load_or_create_client_uid() -> str:
 
 
 def register_client(session: requests.Session, client_uid: str) -> None:
+    # Heartbeat-aehnliche Registrierung/Update des Clients am Server.
     response = session.post(
         f"{settings.server_url}/api/clients/register",
         json={
@@ -56,6 +60,7 @@ def register_client(session: requests.Session, client_uid: str) -> None:
 
 
 def send_snapshot(session: requests.Session, client_uid: str) -> None:
+    # Vollstaendigen Hardware-Snapshot erfassen und an den Server uebermitteln.
     snapshot = collect_snapshot()
     response = session.post(
         f"{settings.server_url}/api/clients/{client_uid}/snapshots",
@@ -74,6 +79,7 @@ def send_snapshot(session: requests.Session, client_uid: str) -> None:
 
 
 def run_agent():
+    # Endlosschleife mit exponentiellem Backoff bei Netzwerk-/Serverfehlern.
     client_uid = load_or_create_client_uid()
     session = requests.Session()
     backoff = 2

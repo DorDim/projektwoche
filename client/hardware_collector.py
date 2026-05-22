@@ -1,3 +1,5 @@
+"""Plattformuebergreifende Erfassung von Hardware- und Betriebsdaten."""
+
 import ipaddress
 import json
 import locale
@@ -33,7 +35,7 @@ def _decode_command_output(raw_output: bytes) -> str:
     if not raw_output:
         return ""
 
-    # Some Windows commands emit UTF-16; prefer it when null bytes are prevalent.
+    # Manche Windows-Kommandos liefern UTF-16; bei vielen Null-Bytes zuerst damit versuchen.
     if raw_output.startswith((b"\xff\xfe", b"\xfe\xff")) or raw_output.count(b"\x00") > len(raw_output) // 4:
         for encoding in ("utf-16", "utf-16-le", "utf-16-be"):
             try:
@@ -54,7 +56,7 @@ def _decode_command_output(raw_output: bytes) -> str:
         except UnicodeDecodeError:
             continue
 
-    # Last-resort fallback to avoid crashes in collector threads.
+    # Letzter Fallback, damit Collector-Threads bei exotischen Encodings nicht abstuerzen.
     return raw_output.decode(preferred_encoding, errors="replace")
 
 
@@ -127,7 +129,7 @@ def get_hostname() -> str:
 
 
 def get_client_uid() -> str:
-    # Stable identifier derived from machine-id where possible.
+    # Moeglichst stabile ID aus machine-id ableiten, sonst MAC-basierter Fallback.
     machine_id_paths = [Path("/etc/machine-id"), Path("/var/lib/dbus/machine-id")]
     for path in machine_id_paths:
         if path.exists():
