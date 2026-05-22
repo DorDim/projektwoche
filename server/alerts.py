@@ -1,3 +1,5 @@
+"""Hilfslogik zur Bewertung von Alert-Regeln gegen Snapshot-Daten."""
+
 from dataclasses import dataclass
 
 from server.models import AlertRule, HardwareSnapshot
@@ -5,6 +7,7 @@ from server.models import AlertRule, HardwareSnapshot
 
 @dataclass
 class RuleEvaluation:
+    """Ergebnisobjekt fuer die Pruefung einer einzelnen Regel."""
     rule: AlertRule
     metric_value: float | None
     triggered: bool
@@ -12,6 +15,7 @@ class RuleEvaluation:
 
 
 def _min_disk_free_percent(snapshot: HardwareSnapshot) -> float | None:
+    """Liefert den niedrigsten freien Speicher-Prozentwert aus allen Laufwerken."""
     disks = snapshot.disks or []
     if not disks:
         return None
@@ -22,6 +26,7 @@ def _min_disk_free_percent(snapshot: HardwareSnapshot) -> float | None:
 
 
 def metric_value_for_rule(snapshot: HardwareSnapshot, metric: str) -> float | None:
+    """Ordnet Regel-Metriken auf den passenden Snapshot-Wert ab."""
     if metric == "disk_free_percent_min":
         return _min_disk_free_percent(snapshot)
     if metric == "uptime_seconds":
@@ -30,6 +35,7 @@ def metric_value_for_rule(snapshot: HardwareSnapshot, metric: str) -> float | No
 
 
 def evaluate_rule(rule: AlertRule, snapshot: HardwareSnapshot) -> RuleEvaluation:
+    """Prueft Comparator/Grenzwert und erzeugt eine lesbare Meldung."""
     value = metric_value_for_rule(snapshot, rule.metric)
     if value is None:
         return RuleEvaluation(rule=rule, metric_value=None, triggered=False, message=None)

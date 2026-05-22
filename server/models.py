@@ -1,3 +1,5 @@
+"""ORM-Modelle fuer Monitoring-, Inventar-, Auth- und Event-Daten."""
+
 from datetime import date, datetime, timezone
 
 from sqlalchemy import Boolean, Date, DateTime, Float, ForeignKey, Integer, JSON, String, Text
@@ -7,10 +9,12 @@ from server.database import Base
 
 
 def utc_now() -> datetime:
+    """Erzeugt einen konsistenten UTC-Zeitstempel fuer Defaults."""
     return datetime.now(timezone.utc)
 
 
 class Client(Base):
+    """Stammdaten eines registrierten Clients inklusive Inventarfeldern."""
     __tablename__ = "clients"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True, index=True)
@@ -39,6 +43,7 @@ class Client(Base):
 
 
 class HardwareSnapshot(Base):
+    """Zeitpunktbezogene technische Messdaten eines Clients."""
     __tablename__ = "hardware_snapshots"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -66,6 +71,7 @@ class HardwareSnapshot(Base):
 
 
 class AlertRule(Base):
+    """Konfigurierbare Regeldefinition fuer Schwellenwertpruefungen."""
     __tablename__ = "alert_rules"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -82,6 +88,7 @@ class AlertRule(Base):
 
 
 class AlertEvent(Base):
+    """Ausgeloester Alert inklusive Regel-, Snapshot- und Client-Bezug."""
     __tablename__ = "alert_events"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -98,6 +105,7 @@ class AlertEvent(Base):
 
 
 class ApiToken(Base):
+    """Persistierte API-Tokens fuer Agenten/Onboarding (nur gehashter Token)."""
     __tablename__ = "api_tokens"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -108,6 +116,7 @@ class ApiToken(Base):
 
 
 class AppUser(Base):
+    """Interner Web-Benutzer mit Rolle, Rechten und Aktiv-Status."""
     __tablename__ = "app_users"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -124,6 +133,7 @@ class AppUser(Base):
 
 
 class UserSession(Base):
+    """Login-Session eines Benutzers (gehashter Sitzungstoken)."""
     __tablename__ = "user_sessions"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)
@@ -136,6 +146,7 @@ class UserSession(Base):
 
 
 class EventLog(Base):
+    """Audit-/Betriebsprotokoll fuer relevante System- und Benutzeraktionen."""
     __tablename__ = "event_logs"
 
     id: Mapped[int] = mapped_column(Integer, primary_key=True)

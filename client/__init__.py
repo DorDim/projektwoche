@@ -1,1 +1,1 @@
-# Package marker for client module.
+# Paketmarker fuer das Client-Modul.
